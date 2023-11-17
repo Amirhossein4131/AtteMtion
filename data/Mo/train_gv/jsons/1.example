@@ -1,0 +1,42 @@
+{
+      "name": "Mo",
+      "atomic_position_unit": "cartesian",
+      "energy": [
+            -4.64837745,
+            "ev"
+      ],
+      "atoms": [
+            [
+                  0,
+                  "Mo",
+                  [
+                        0.0,
+                        0.0,
+                        0.0
+                  ],
+                  [
+                        0.0,
+                        0.0,
+                        0.0
+                  ]
+            ]
+      ],
+      "lattice_vectors": [
+            [
+                  17.0,
+                  0.0,
+                  0.0
+            ],
+            [
+                  0.0,
+                  18.0,
+                  0.0
+            ],
+            [
+                  0.0,
+                  0.0,
+                  19.0
+            ]
+      ],
+      "unit_of_length": "angstrom"
+}
