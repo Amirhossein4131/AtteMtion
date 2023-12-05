@@ -1,3 +1,6 @@
+# DATA
+
+
 import numpy as np
 import os
 import json
@@ -16,6 +19,19 @@ from torch.utils.data import random_split
 from pymatgen.io.cif import CifParser
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.core import Structure, Lattice, Site
+
+import torch
+import pytorch_lightning as pl
+
+from torch_geometric.nn import global_mean_pool
+from torch.optim import Adam
+from torch.nn.functional import relu
+from torch.nn import Module, MultiheadAttention, Linear
+from torch_geometric.nn import global_mean_pool, GATConv
+from torch.optim.lr_scheduler import StepLR
+
+from transformers import GPT2Config, GPT2Model
+
 
 
 DATASETS = {
@@ -135,7 +151,7 @@ def dataset(db_name):
     db_path =  os.path.join(DATASETS[db_name], "train_gv", "gvectors")
     gvect_keys, json_keys = get_db_keys(db_name)
     set = []
-    for item in gvect_keys[0:100]:
+    for item in gvect_keys[0:80]:
         a = gvector (db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
@@ -145,7 +161,7 @@ def dataset(db_name):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:100]):
+    for item in tqdm(json_keys[0:80]):
         structure = json_to_pmg_structure(db_name="Mo", json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
@@ -161,7 +177,7 @@ def get_labels(db_name):
      db_path =  os.path.join(DATASETS[db_name], "train_gv", "jsons")
      gvect_keys, json_keys = get_db_keys(db_name)
      
-     for item in json_keys[0: 100]:
+     for item in json_keys[0:80]:
           example = os.path.join(db_path, item)
           data = read_json(example)
           num_atoms = len(data["atoms"])
@@ -173,12 +189,44 @@ def get_labels(db_name):
      
      return label
 
+def create_sequence_tensor(feature, seq_len):
+    count = 0
+    sequence = []
+    num_batches = len(feature) // seq_len
 
-def data(db_name, batch_size):
+    for batch in range(num_batches):
+        sub_sequence = [feature[count + i] for i in range(seq_len)]
+        count += seq_len
+        sequence.append(sub_sequence)
+
+    return sequence
+
+def in_context_data(data_loader, batch_size):
+    in_context_db = []
+    for batch in data_loader:
+        in_context_example = {
+            "parinello": batch.x,
+            "edge_index": batch.edge_index,
+            "to_j": batch.to_j,
+            "in_context_label": batch.batch,
+            "label": batch.y, 
+        }
+
+        data = Data(x=in_context_example["parinello"], edge_index=in_context_example["edge_index"],
+            to_j=in_context_example["to_j"], config_label=in_context_example["in_context_label"],
+            y=in_context_example["label"])
+    
+        in_context_db.append(data)
+
+    context_loader = DataLoader(in_context_db, batch_size=batch_size, shuffle=False)
+
+    return context_loader
+
+
+def data(db_name, sequence_size, batch_size):
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
     parinello, edge_indexes, edges = dataset(db_name=db_name)
-
     labels = get_labels(db_name)
 
     db = []
@@ -193,7 +241,10 @@ def data(db_name, batch_size):
     val_size = dataset_size - train_size
     train_dataset, val_dataset = random_split(db, [train_size, val_size])
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    t_loader = DataLoader(train_dataset, batch_size=sequence_size, shuffle=False)
+    v_loader = DataLoader(val_dataset, batch_size=sequence_size, shuffle=False)
     
+    train_loader = in_context_data(t_loader, batch_size=batch_size)
+    val_loader = in_context_data(v_loader, batch_size=batch_size)
+
     return train_loader, val_loader
