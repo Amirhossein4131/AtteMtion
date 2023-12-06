@@ -151,7 +151,7 @@ def dataset(db_name):
     db_path =  os.path.join(DATASETS[db_name], "train_gv", "gvectors")
     gvect_keys, json_keys = get_db_keys(db_name)
     set = []
-    for item in gvect_keys[0:80]:
+    for item in gvect_keys[0:3920]:
         a = gvector (db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
@@ -161,7 +161,7 @@ def dataset(db_name):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:80]):
+    for item in tqdm(json_keys[0:3920]):
         structure = json_to_pmg_structure(db_name="Mo", json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
@@ -177,7 +177,7 @@ def get_labels(db_name):
      db_path =  os.path.join(DATASETS[db_name], "train_gv", "jsons")
      gvect_keys, json_keys = get_db_keys(db_name)
      
-     for item in json_keys[0:80]:
+     for item in json_keys[0:3920]:
           example = os.path.join(db_path, item)
           data = read_json(example)
           num_atoms = len(data["atoms"])

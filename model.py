@@ -127,7 +127,7 @@ class InContextGNN(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=0.01)
-        scheduler = StepLR(optimizer, step_size=10000, gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=2000, gamma=0.5)
 
         return {
             'optimizer': optimizer,
