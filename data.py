@@ -14,6 +14,7 @@ import torch
 from torch_geometric.data import Data, DataLoader
 from torch.utils.data import random_split
 
+from functools import lru_cache
 
 
 from pymatgen.io.cif import CifParser
@@ -35,7 +36,7 @@ from transformers import GPT2Config, GPT2Model
 
 
 DATASETS = {
-    "Mo": "./data/Mo"
+    "Mo": os.path.join("data", "Mo")
 }
 
 def gvector (gvector):
@@ -71,10 +72,10 @@ def json_to_pmg_structure(db_name, json_file):
     """
     converts json files into cif format files
     """
-    cif_path = os.path.join(DATASETS[db_name], 
+    cif_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
                             "train_gv", "cifs")  
     
-    json_path = os.path.join(DATASETS[db_name], 
+    json_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
                             "train_gv", "jsons", json_file) 
     
     Path(cif_path).mkdir(parents=True,
@@ -106,7 +107,7 @@ def get_edge_indexes(structure):
     edge_index_from = []
     edge_index_to = []
     edges = []
-    for i in range (len(structure_graph)):
+    for i in range(len(structure_graph)):
         #iterates over the connected atoms of each atom in the cell
         for j in range(len(structure_graph[i])):
             edge_index_from.append(i)
@@ -118,11 +119,9 @@ def get_edge_indexes(structure):
     edge_index_from = torch.tensor(edge_index_from)
     edge_index_to = torch.tensor(edge_index_to)
 
-    edge_indexes = np.array([edge_index_from, edge_index_to])
-    edge_indexes = torch.from_numpy(edge_indexes)
+    edge_indexes = torch.stack([edge_index_from, edge_index_to], dim=0)
 
-    edges = np.array(edges)
-    edges = torch.from_numpy(edges)
+    edges = torch.cat(edges, dim=0)
     return edge_indexes, edges
 
 
@@ -133,7 +132,8 @@ def read_json(filename):
 
 
 def get_db_keys(db_name):
-    db_path = os.path.join(DATASETS[db_name], "train_gv", "gvectors")
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
+    # I made the path compatible with hydra, but it would be better to include the path in config
     keys = [f.split(".")[0] for f in os.listdir(db_path) if os.path.isfile(os.path.join(db_path, f))]
 
     gvector_keys = []
@@ -148,11 +148,12 @@ def get_db_keys(db_name):
 
 def dataset(db_name):
     # Parinello vectors
-    db_path =  os.path.join(DATASETS[db_name], "train_gv", "gvectors")
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
+    # I made the path compatible with hydra, but it would be better to include the path in config
     gvect_keys, json_keys = get_db_keys(db_name)
     set = []
     for item in gvect_keys[0:3920]:
-        a = gvector (db_path + "/" + item)
+        a = gvector(db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
     parinello = set
@@ -174,10 +175,10 @@ def get_labels(db_name):
      """gets labels (energy, force, ...)"""
      
      label = []
-     db_path =  os.path.join(DATASETS[db_name], "train_gv", "jsons")
+     db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "jsons")
      gvect_keys, json_keys = get_db_keys(db_name)
      
-     for item in json_keys[0:3920]:
+     for item in json_keys[0:960]:
           example = os.path.join(db_path, item)
           data = read_json(example)
           num_atoms = len(data["atoms"])
