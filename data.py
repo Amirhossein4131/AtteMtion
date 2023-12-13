@@ -32,11 +32,14 @@ from torch.optim.lr_scheduler import StepLR
 
 from transformers import GPT2Config, GPT2Model
 
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 
 DATASETS = {
-    "Mo": "./data/Mo"
+    "Mo": "/home/amirhossein/Desktop/repos/AtteMtion/data/Mo"
 }
+
 
 def gvector (gvector):
     with open(gvector, "rb") as binary_file:
@@ -67,15 +70,15 @@ def gvector (gvector):
     return (gvect_tensor)
 
 
-def json_to_pmg_structure(db_name, json_file):
+def json_to_pmg_structure(db_name, json_file, db_type):
     """
     converts json files into cif format files
     """
     cif_path = os.path.join(DATASETS[db_name], 
-                            "train_gv", "cifs")  
+                            db_type, "cifs")  
     
     json_path = os.path.join(DATASETS[db_name], 
-                            "train_gv", "jsons", json_file) 
+                            db_type, "jsons", json_file) 
     
     Path(cif_path).mkdir(parents=True,
                           exist_ok=True)
@@ -132,8 +135,8 @@ def read_json(filename):
     return data
 
 
-def get_db_keys(db_name):
-    db_path = os.path.join(DATASETS[db_name], "train_gv", "gvectors")
+def get_db_keys(db_name, db_type):
+    db_path = os.path.join(DATASETS[db_name], db_type, "gvectors")
     keys = [f.split(".")[0] for f in os.listdir(db_path) if os.path.isfile(os.path.join(db_path, f))]
 
     gvector_keys = []
@@ -146,12 +149,13 @@ def get_db_keys(db_name):
 
 
 
-def dataset(db_name):
+def dataset(db_name, db_type):
     # Parinello vectors
-    db_path =  os.path.join(DATASETS[db_name], "train_gv", "gvectors")
-    gvect_keys, json_keys = get_db_keys(db_name)
+    db  = db_type
+    db_path =  os.path.join(DATASETS[db_name], db_type, "gvectors")
+    gvect_keys, json_keys = get_db_keys(db_name, db_type=db)
     set = []
-    for item in gvect_keys[0:3920]:
+    for item in gvect_keys[:]:
         a = gvector (db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
@@ -161,8 +165,8 @@ def dataset(db_name):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:3920]):
-        structure = json_to_pmg_structure(db_name="Mo", json_file=item)
+    for item in tqdm(json_keys[:]):
+        structure = json_to_pmg_structure(db_name="Mo", json_file=item, db_type=db)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
         edges.append(e)
@@ -170,14 +174,15 @@ def dataset(db_name):
     return parinello, edge_indexes, edges
 
 
-def get_labels(db_name):
+def get_labels(db_name, db_type):
      """gets labels (energy, force, ...)"""
-     
+
+     db = db_type
      label = []
-     db_path =  os.path.join(DATASETS[db_name], "train_gv", "jsons")
-     gvect_keys, json_keys = get_db_keys(db_name)
+     db_path =  os.path.join(DATASETS[db_name], db_type, "jsons")
+     gvect_keys, json_keys = get_db_keys(db_name, db_type=db)
      
-     for item in json_keys[0:3920]:
+     for item in json_keys[:]:
           example = os.path.join(db_path, item)
           data = read_json(example)
           num_atoms = len(data["atoms"])
@@ -223,11 +228,12 @@ def in_context_data(data_loader, batch_size):
     return context_loader
 
 
-def data(db_name, sequence_size, batch_size):
+def data(db_name, sequence_size, batch_size, db_type):
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
-    parinello, edge_indexes, edges = dataset(db_name=db_name)
-    labels = get_labels(db_name)
+    db = db_type
+    parinello, edge_indexes, edges = dataset(db_name=db_name, db_type=db)
+    labels = get_labels(db_name, db_type=db)
 
     db = []
     for i in range (len(parinello)):
@@ -236,15 +242,8 @@ def data(db_name, sequence_size, batch_size):
 
     # Create a PyTorch Geometric DataLoader
     batch_size = batch_size
-    dataset_size = len(db)
-    train_size = int(0.8 * dataset_size)
-    val_size = dataset_size - train_size
-    train_dataset, val_dataset = random_split(db, [train_size, val_size])
 
-    t_loader = DataLoader(train_dataset, batch_size=sequence_size, shuffle=False)
-    v_loader = DataLoader(val_dataset, batch_size=sequence_size, shuffle=False)
-    
-    train_loader = in_context_data(t_loader, batch_size=batch_size)
-    val_loader = in_context_data(v_loader, batch_size=batch_size)
+    t_loader = DataLoader(db, batch_size=sequence_size, shuffle=False)
+    loader = in_context_data(t_loader, batch_size=batch_size)
 
-    return train_loader, val_loader
+    return loader
