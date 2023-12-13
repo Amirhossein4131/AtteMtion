@@ -20,29 +20,6 @@ assert (
 ), "The project root doesn't exist"
 
 
-
-yaml_cfg = """
-hydra:
-    run:
-        dir:
-            $os.env.ROOT_PATH/hydra/experimentname
-            
-model:
-    _target_:
-        model.InContextGNN
-
-trainer:
-    max_epochs: 1000000
-    log_interval: 100
-
-"""
-# This is what's passed to omegaconf. One can either use a string to create cfg, or use outside .yaml files.
-# Below is how you would create cfg normally. For us, hydra does exactly that implicitly!
-# cfg = OmegaConf.create(yaml_cfg)
-# todo It's an example to delete after discussing
-
-# I moved this one here, because it conflicts with @hydra.main otherwise
-# I encapsulated it in function, so it's only called if __name__ indeed equals '__main__', but it's now a neat one-liner
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default=None)
