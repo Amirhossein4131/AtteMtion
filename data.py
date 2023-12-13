@@ -14,6 +14,7 @@ import torch
 from torch_geometric.data import Data, DataLoader
 from torch.utils.data import random_split
 
+from functools import lru_cache
 
 
 from pymatgen.io.cif import CifParser
@@ -37,7 +38,7 @@ from omegaconf import DictConfig, OmegaConf
 
 
 DATASETS = {
-    "Mo": "/home/amirhossein/Desktop/repos/AtteMtion/data/Mo"
+    "Mo": os.path.join("data", "Mo")
 }
 
 
@@ -74,11 +75,11 @@ def json_to_pmg_structure(db_name, json_file, db_type):
     """
     converts json files into cif format files
     """
-    cif_path = os.path.join(DATASETS[db_name], 
-                            db_type, "cifs")  
+    cif_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
+                            "train_gv", "cifs")  
     
-    json_path = os.path.join(DATASETS[db_name], 
-                            db_type, "jsons", json_file) 
+    json_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
+                            "train_gv", "jsons", json_file) 
     
     Path(cif_path).mkdir(parents=True,
                           exist_ok=True)
@@ -109,7 +110,7 @@ def get_edge_indexes(structure):
     edge_index_from = []
     edge_index_to = []
     edges = []
-    for i in range (len(structure_graph)):
+    for i in range(len(structure_graph)):
         #iterates over the connected atoms of each atom in the cell
         for j in range(len(structure_graph[i])):
             edge_index_from.append(i)
@@ -121,11 +122,9 @@ def get_edge_indexes(structure):
     edge_index_from = torch.tensor(edge_index_from)
     edge_index_to = torch.tensor(edge_index_to)
 
-    edge_indexes = np.array([edge_index_from, edge_index_to])
-    edge_indexes = torch.from_numpy(edge_indexes)
+    edge_indexes = torch.stack([edge_index_from, edge_index_to], dim=0)
 
-    edges = np.array(edges)
-    edges = torch.from_numpy(edges)
+    edges = torch.cat(edges, dim=0)
     return edge_indexes, edges
 
 
@@ -135,8 +134,10 @@ def read_json(filename):
     return data
 
 
-def get_db_keys(db_name, db_type):
-    db_path = os.path.join(DATASETS[db_name], db_type, "gvectors")
+def get_db_keys(db_name):
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
+    # I made the path compatible with hydra, but it would be better to include the path in config
+
     keys = [f.split(".")[0] for f in os.listdir(db_path) if os.path.isfile(os.path.join(db_path, f))]
 
     gvector_keys = []
@@ -151,8 +152,10 @@ def get_db_keys(db_name, db_type):
 
 def dataset(db_name, db_type):
     # Parinello vectors
+
+
     db  = db_type
-    db_path =  os.path.join(DATASETS[db_name], db_type, "gvectors")
+    db_path =  os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], db_type, "gvectors")
     gvect_keys, json_keys = get_db_keys(db_name, db_type=db)
     set = []
     for item in gvect_keys[:]:
@@ -179,7 +182,7 @@ def get_labels(db_name, db_type):
 
      db = db_type
      label = []
-     db_path =  os.path.join(DATASETS[db_name], db_type, "jsons")
+     db_path =  os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], db_type, "jsons")
      gvect_keys, json_keys = get_db_keys(db_name, db_type=db)
      
      for item in json_keys[:]:

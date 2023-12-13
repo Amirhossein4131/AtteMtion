@@ -29,8 +29,8 @@ from torch.optim.lr_scheduler import StepLR
 
 from transformers import GPT2Config, GPT2Model
 
+from qm9_data import train_loader_qm, val_loader_qm
 from data import *
-
 
 class GPT2BasedModel(Module):
     def __init__(self, n_dims, n_positions, n_embd=128, n_layer=12, n_head=4):
@@ -78,7 +78,7 @@ class GPT2BasedModel(Module):
         #regular
         zs = self._combine(x, y)[:, [-2]]
         gpt2_output = self._backbone(inputs_embeds=zs)
-        output = self._read_out(gpt2_output.last_hidden_state[:, -1, :])
+        output = gpt2_output.last_hidden_state[:, -1, :]
 
         return output
 
@@ -91,22 +91,23 @@ class InContextGNN(pl.LightningModule):
         self.att1 = GPT2BasedModel(64, 128)
         self.readout = Linear(1, 1)
         self.act = relu
+
         self.train_loader = data(db_name="Mo", sequence_size=4 , batch_size=4, db_type = "train")
         self.val_loader = data(db_name="Mo", sequence_size=4, batch_size=4, db_type = "test")
  
     def forward(self, batch):
-        #encoder
+        # encoder
         graphs_per_datapoint = torch.max(batch.config_label) + 1
         actual_batch_dot_batch = batch.batch * graphs_per_datapoint + batch.config_label
-	
+
         graph_h1 = self.graph1(batch.x, batch.edge_index)
         graph_h1 = self.act(graph_h1)
         graph_h2 = self.graph2(graph_h1, batch.edge_index)
         graph_h2 = self.act(graph_h2)
         graph_h = global_mean_pool(graph_h2, actual_batch_dot_batch)
-        
+
         o = batch.y.reshape(-1, 1)
-        graph_h = graph_h.reshape(torch.max(batch.batch) + 1 , graphs_per_datapoint, -1)
+        graph_h = graph_h.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint, -1)
 
         
         h1 = self.att1(graph_h, o)
@@ -126,8 +127,9 @@ class InContextGNN(pl.LightningModule):
         graphs_per_datapoint = torch.max(batch.config_label) + 1
         output = self(batch)
         loss = torch.nn.functional.mse_loss(output, batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:, -1])
-        self.log('train_loss', loss)
-        self.log('learning_rate', self.trainer.optimizers[0].param_groups[0]['lr'])
+        self.log_dict({'train_loss': loss,
+                       'learning_rate': self.trainer.optimizers[0].param_groups[0]['lr'],
+                       }, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
@@ -138,7 +140,7 @@ class InContextGNN(pl.LightningModule):
             'optimizer': optimizer,
             'lr_scheduler': {
                 'scheduler': scheduler,
-                'interval': 'epoch', 
+                'interval': 'epoch',
                 'monitor': 'val_loss',
             }
         }
@@ -146,8 +148,6 @@ class InContextGNN(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         graphs_per_datapoint = torch.max(batch.config_label) + 1
         output = self(batch)
-        #print(output)
-        #print(batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:, -1])
-        loss = torch.nn.functional.mse_loss(output, batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:, -1])
-        self.log('val_loss', loss)
-        return {'val_loss': loss}
+        loss = torch.nn.functional.mse_loss(output, batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:, [-1]])
+        self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
