@@ -152,7 +152,7 @@ def dataset(db_name):
     # I made the path compatible with hydra, but it would be better to include the path in config
     gvect_keys, json_keys = get_db_keys(db_name)
     set = []
-    for item in gvect_keys[0:3920]:
+    for item in gvect_keys[0:960]:
         a = gvector(db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
@@ -162,7 +162,7 @@ def dataset(db_name):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:3920]):
+    for item in tqdm(json_keys[0:960]):
         structure = json_to_pmg_structure(db_name="Mo", json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)

@@ -11,6 +11,8 @@ import torch
 from torch_geometric.data import Data, DataLoader
 from torch.utils.data import random_split
 
+from pl_modules.nn.graph_models import GATWrap
+
 
 
 from pymatgen.io.cif import CifParser
@@ -29,7 +31,7 @@ from torch.optim.lr_scheduler import StepLR
 
 from transformers import GPT2Config, GPT2Model
 
-from qm9_data import train_loader_qm, val_loader_qm
+#from qm9_data import train_loader_qm, val_loader_qm
 from data import *
 
 class GPT2BasedModel(Module):
@@ -83,6 +85,7 @@ class GPT2BasedModel(Module):
 class InContextGNN(pl.LightningModule):
     def __init__(self):
         super(InContextGNN, self).__init__()
+        self.GNN = GATWrap(in_channels=160, hidden_channels=64, num_layers=5, out_channels=64)
         self.graph1 = GATConv(in_channels=160, out_channels=16, heads=2)
         self.graph2 = GATConv(in_channels=32, out_channels=8, heads=8)
         self.att1 = GPT2BasedModel(64, 128)
