@@ -1,0 +1,10 @@
+_target_: pl_modules.modules.in_context.InContextWrap
+graph_pooling_fn: ${load:torch_geometric.nn.global_mean_pool}
+label_readout:
+  _target_: torch.nn.Linear
+  in_features: 128
+  out_features: 1
+
+defaults:
+  - encoder: ../model/gat2
+  - decoder: ../model/gpt2

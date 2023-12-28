@@ -20,6 +20,11 @@ assert (
 ), "The project root doesn't exist"
 
 
+
+
+
+OmegaConf.register_new_resolver("load", lambda x: eval(x))
+
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default=None)

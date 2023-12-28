@@ -1,0 +1,11 @@
+run:
+  hydra:
+    dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+trainer:
+  max_epochs: 500
+  log_interval: 100
+
+defaults:
+  - model: regression_task
+  - datamodule: regression_datamodule

@@ -158,8 +158,8 @@ def dataset(db_name, db_type):
     db_path =  os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], db_type, "gvectors")
     gvect_keys, json_keys = get_db_keys(db_name, db_type=db)
     set = []
-    for item in gvect_keys[:]:
-        a = gvector (db_path + "/" + item)
+    for item in gvect_keys[0:960]:
+        a = gvector(db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
     parinello = set
@@ -168,8 +168,8 @@ def dataset(db_name, db_type):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[:]):
-        structure = json_to_pmg_structure(db_name="Mo", json_file=item, db_type=db)
+    for item in tqdm(json_keys[0:960]):
+        structure = json_to_pmg_structure(db_name="Mo", json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
         edges.append(e)
