@@ -26,7 +26,7 @@ from torch_geometric.nn import global_mean_pool
 from torch.optim import Adam
 from torch.nn.functional import relu
 from torch.nn import Module, MultiheadAttention, Linear
-from torch_geometric.nn import global_mean_pool, GATConv
+from torch_geometric.nn import global_mean_pool, GATConv, GATv2Conv 
 from torch.optim.lr_scheduler import StepLR
 
 from transformers import GPT2Config, GPT2Model
@@ -75,7 +75,10 @@ class GPT2BasedModel(Module):
     def forward(self, input_tensor, label_tensor):
         y = self._read_in_y(label_tensor)
         x = self._read_in(input_tensor)
-        zs = self._combine(x, y)[:, :-1]
+        #incontext
+        #zs = self._combine(x, y)[:, :-1]
+        #regular
+        zs = self._combine(x, y)[:, [-2]]
         gpt2_output = self._backbone(inputs_embeds=zs)
         output = gpt2_output.last_hidden_state[:, -1, :]
 
@@ -89,10 +92,12 @@ class InContextGNN(pl.LightningModule):
         self.graph1 = GATConv(in_channels=160, out_channels=16, heads=2)
         self.graph2 = GATConv(in_channels=32, out_channels=8, heads=8)
         self.att1 = GPT2BasedModel(64, 128)
-        self.readout = Linear(1, 4)
+        self.readout = Linear(1, 1)
         self.act = relu
-        self.train_loader, self.val_loader = data("Mo", 4, 4)
 
+        self.train_loader = data(db_name="Mo", sequence_size=4 , batch_size=4, db_type = "train")
+        self.val_loader = data(db_name="Mo", sequence_size=4, batch_size=4, db_type = "test")
+ 
     def forward(self, batch):
         # encoder
         graphs_per_datapoint = torch.max(batch.config_label) + 1
@@ -107,10 +112,11 @@ class InContextGNN(pl.LightningModule):
         o = batch.y.reshape(-1, 1)
         graph_h = graph_h.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint, -1)
 
+        
         h1 = self.att1(graph_h, o)
-        h1 = self.act(h1)
-        out = self.readout(h1)
-        return out
+        #h1 = self.act(h1)
+        #out = self.readout(h1)
+        return h1
 
     def train_dataloader(self):
         train_loader = self.train_loader

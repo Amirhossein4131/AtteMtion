@@ -21,21 +21,7 @@ assert (
 
 
 
-yaml_cfg = """
-hydra:
-    run:
-        dir:
-            $os.env.ROOT_PATH/hydra/experimentname
-            
-model:
-    _target_:
-        model.InContextGNN
 
-trainer:
-    max_epochs: 1000000
-    log_interval: 100
-
-"""
 
 OmegaConf.register_new_resolver("load", lambda x: eval(x))
 
