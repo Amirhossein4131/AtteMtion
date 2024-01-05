@@ -1,3 +1,4 @@
+import sklearn.preprocessing
 import torch
 import pytorch_lightning as pl
 import torch_geometric
@@ -8,6 +9,7 @@ from torch_geometric.loader import DataLoader
 from abc import ABC, abstractmethod
 from torch_geometric.data import Data
 import hydra
+from pl_modules.data.utils.molybdenum import data as molybdata
 
 import os
 
@@ -145,6 +147,90 @@ class QMMineContextDataModule(pl.LightningDataModule):
 
 
 
+class MolybdenumDataModule(pl.LightningDataModule):
+    def __init__(self, data_path, sequence_length=5, batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
+        super(MolybdenumDataModule, self).__init__()
+        self.data_path = os.path.join(os.environ['PROJECT_ROOT'], data_path)
+        self.sequence_length = sequence_length
+        self.batch_size = batch_size
+        self.label_scaler = hydra.utils.instantiate(label_scaler)
+        self.modification = modification
+        self.train = None
+        self.val = None
+        self.test = None
+        self.setup()
+
+    def setup(self, stage=None):
+        self.cached_data = QM9(root=os.path.join(self.data_path, 'download'))
+        self.train, self.val, self.test = molybdata('Mo')
+
+        self.label_scaler = sklearn.preprocessing.StandardScaler()
+        if self.label_scaler is not None:
+            self.label_scaler.fit(np.stack(
+                            [t.y for t in self.train],
+                            axis=0).reshape(-1, 1))
+
+    def scale_used_data(self, used_data):
+        #return
+        if self.label_scaler is not None:
+            old_ys = np.stack([ud.y for ud in used_data], axis=0).reshape(-1, 1)
+            new_ys = self.label_scaler.transform(old_ys)
+            new_ys_tens = torch.tensor(new_ys, dtype=used_data[0].x.dtype, device=used_data[0].x.device)
+            for ud, ny in zip(used_data, new_ys_tens):
+                ud.y = ny
+        return used_data
+
+    def in_context_dataloader(self, data):
+        return self.double_loader_trick(data, self.batch_size, self.sequence_length)
+
+    @staticmethod
+    def double_loader_trick(data, batch_size, sequence_size):
+        """
+        In order to portion data into contexts, a dataloader is used. The batch_size of the first dataloader
+        corresponds to the length of a sequence (context + inference), while that of the second one is the
+        actual batch size. Based on the pointers of the first batch, new fields are added that help keep track
+        of both the space a structure takes in a batch and in a context.
+        """
+        context_loader = DataLoader(data, batch_size=sequence_size, shuffle=False)
+        contexts = []
+        for b in context_loader:
+            batch_fields = {k: v for k, v in b.items() if k not in ['batch', 'ptr']}
+            batch_fields['context_num'] = b.batch
+            context_datapoint = Data(**batch_fields)
+            contexts.append(context_datapoint)
+        full_loader = DataLoader(contexts, batch_size=batch_size, shuffle=True)
+        return full_loader
+
+    def train_dataloader(self, modification=None):
+        raw_data = self.train
+        data = self.scale_used_data(raw_data)
+        if modification is None:
+            modification = self.modification
+        if modification == 'breakdown':
+            return DataLoader(data, batch_size=self.batch_size, shuffle=True)
+        return self.in_context_dataloader(data)
+
+    def val_dataloader(self, modification=None):
+        raw_data = self.val
+        data = self.scale_used_data(raw_data)
+        if modification is None:
+            modification = self.modification
+        if modification == 'breakdown':
+            return DataLoader(data, batch_size=self.batch_size, shuffle=True)
+        return self.in_context_dataloader(data)
+
+    def test_dataloader(self, modification=None):
+        raw_data = self.test
+        data = self.scale_used_data(raw_data)
+        if modification is None:
+            modification = self.modification
+        if modification == 'breakdown':
+            return DataLoader(data, batch_size=self.batch_size, shuffle=True)
+        return self.in_context_dataloader(data)
+
+
+
+
 
 if __name__ == '__main__':
     os.chdir('../..')
@@ -152,5 +238,5 @@ if __name__ == '__main__':
     from pathlib import Path
     dotenv.load_dotenv()
     data_path = os.path.join(os.environ['PROJECT_ROOT'], 'data', 'QM9')
-    datamodule = QMMineContextDataModule(data_path)
+    datamodule = MolybdenumDataModule(data_path)
     datamodule.train_dataloader()
