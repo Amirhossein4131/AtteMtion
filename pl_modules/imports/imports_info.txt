@@ -1,0 +1,15 @@
+So far, two predefined geometric GNNs have been imported: DimeNet and MXMNet.
+These are expected to be much more effective than the GAT and GCN networks pulled from torch_geometric.
+
+MXMNet makes for a useful comparison for QM9, but it has not been adapted for crystal graphs (utilization of to_jimages).
+It also has several drawbacks that might make it difficult to use it: it conducts a global message passing based on
+the coordinates of atoms. This dynamic edge assignment also omits the entirety of pymatgen's CrystalNN framework,
+which aims to utilize different translated views of the same atom to create a set of interactions. Using both approaches
+together (CrystalNN and MXMNet) needs deep refactorization of at least one of them and - in the light of other options
+- seems just not worth it.
+
+DimeNet has been adapted for the usage of molecular graphs. If to_jimages are present, the availability of corresponding
+lattice vectors is assumed. If they are absent, an error is raised, otherwise, they are consistently used to produce
+geometric features of the structure graph.
+
+Example initializations of MXMNet and DimeNet have been added in the configuration files: conf\grzegorz\model\model

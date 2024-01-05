@@ -143,13 +143,13 @@ def get_db_keys(db_name):
     return gvector_keys, json_keys
 
 
-def dataset(db_name):
+def dataset(db_name, datapoint_limit=None):
     # Parinello vectors
     db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
     # I made the path compatible with hydra, but it would be better to include the path in config
     gvect_keys, json_keys = get_db_keys(db_name)
     set = []
-    for item in gvect_keys[0:960]:
+    for item in gvect_keys[0:datapoint_limit]:
         a = gvector(db_path + "/" + item)
         a = torch.tensor(a)
         set.append(a)
@@ -159,7 +159,7 @@ def dataset(db_name):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:960]):
+    for item in tqdm(json_keys[0:datapoint_limit]):
         structure = json_to_pmg_structure(db_name="Mo", json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
@@ -200,10 +200,10 @@ def create_sequence_tensor(feature, seq_len):
 
     return sequence
 
-def data(db_name):
+def data(db_name, datapoint_limit=None):
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
-    parinello, edge_indexes, edges = dataset(db_name=db_name)
+    parinello, edge_indexes, edges = dataset(db_name=db_name, datapoint_limit=datapoint_limit)
     labels = get_labels(db_name)
 
     db = []

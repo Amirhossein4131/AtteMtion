@@ -9,4 +9,4 @@ readout:
   activation_fn: ${load:torch.nn.functional.silu}
 
 defaults:
-  - gnn: ../model/gat
+  - gnn: ../model/mxmnet

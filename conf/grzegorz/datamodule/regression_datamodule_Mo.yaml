@@ -1,0 +1,7 @@
+_target_: pl_modules.data.datamodule.MolybdenumDataModule
+batch_size: 64
+sequence_length: 5
+modification: no_context
+datapoint_limit: 320
+label_scaler:
+  _target_: sklearn.preprocessing.StandardScaler

@@ -1,0 +1,6 @@
+_target_: pl_modules.modules.direct_prediction.GraphFeaturePredictor
+pool: null
+readout: null
+
+defaults:
+  - gnn: ../model/dimenet

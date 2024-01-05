@@ -21,13 +21,15 @@ def extract_data(dataset):
     return graphs
 
 class QMMineContextDataModule(pl.LightningDataModule):
-    def __init__(self, data_path, split_name='sizes', batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
+    def __init__(self, data_path, split_name='sizes', batch_size=64, label_scaler=None, modification=None,
+                 features='atom_ohe', *args, **kwargs):
         super(QMMineContextDataModule, self).__init__()
         self.data_path = os.path.join(os.environ['PROJECT_ROOT'], data_path)
         self.split_name = split_name
         self.batch_size = batch_size
         self.label_scaler = hydra.utils.instantiate(label_scaler)
         self.modification = modification
+        self.features = features
         self.train = None
         self.val = None
         self.test = None
@@ -48,8 +50,12 @@ class QMMineContextDataModule(pl.LightningDataModule):
         }
 
         #self.train_dataset = torch.tensor(np.load())
-
-
+        if self.features == 'atom_categorical':
+            x = self.cached_data.data.x
+            self.cached_data.data.x = torch.tensor(x[:, :5].argmax(dim=1), dtype=x.dtype, device=x.device)
+        if self.features == 'atom_ohe':
+            x = self.cached_data.data.x
+            self.cached_data.data.x = torch.tensor(x[:, :5], dtype=x.dtype, device=x.device)
         if self.label_scaler is not None:
             self.label_scaler.fit(np.concatenate(
                             [self.cached_data[i].y for i in self.structure_registers['train'].reshape(-1)],
@@ -148,23 +154,22 @@ class QMMineContextDataModule(pl.LightningDataModule):
 
 
 class MolybdenumDataModule(pl.LightningDataModule):
-    def __init__(self, data_path, sequence_length=5, batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
+    def __init__(self, batch_size=64, sequence_length=5, label_scaler=None, modification=None, datapoint_limit=None, *args, **kwargs):
         super(MolybdenumDataModule, self).__init__()
-        self.data_path = os.path.join(os.environ['PROJECT_ROOT'], data_path)
         self.sequence_length = sequence_length
         self.batch_size = batch_size
         self.label_scaler = hydra.utils.instantiate(label_scaler)
         self.modification = modification
+        self.datapoint_limit = datapoint_limit
         self.train = None
         self.val = None
         self.test = None
         self.setup()
 
     def setup(self, stage=None):
-        self.cached_data = QM9(root=os.path.join(self.data_path, 'download'))
-        self.train, self.val, self.test = molybdata('Mo')
+        self.train, self.val, self.test = molybdata('Mo', datapoint_limit=self.datapoint_limit)
 
-        self.label_scaler = sklearn.preprocessing.StandardScaler()
+        self.label_scaler = self.label_scaler
         if self.label_scaler is not None:
             self.label_scaler.fit(np.stack(
                             [t.y for t in self.train],

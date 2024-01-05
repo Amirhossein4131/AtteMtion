@@ -1,3 +1,6 @@
+from model import *  # please avoid the import * clause
+from data import *
+
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
@@ -9,8 +12,6 @@ import hydra
 import omegaconf
 from omegaconf import OmegaConf, DictConfig
 import dotenv
-from pathlib import Path
-import os
 
 dotenv.load_dotenv()
 PROJECT_ROOT: Path = Path(os.environ["PROJECT_ROOT"])
@@ -29,7 +30,7 @@ def parse_args():
     return args
 
 
-@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='in_context.yaml')
+@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='regression_dime.yaml')
 # Feel free to test the behavior of hydra: I made two equivalent versions of Your params: single_file and composed_conf
 def main(cfg: DictConfig):
     args = parse_args()
