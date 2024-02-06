@@ -1,8 +1,0 @@
-hydra:
-    run:
-        dir:
-            ${oc.env:PROJECT_ROOT}/hydra/experimentname
-
-defaults:
-    - model: default
-    - trainer: default

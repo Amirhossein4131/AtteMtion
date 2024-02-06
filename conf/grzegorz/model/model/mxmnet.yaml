@@ -1,6 +1,0 @@
-_target_: pl_modules.nn.graph_models.MXMNetWrap
-mxmnet_config:
-  _target_: pl_modules.imports.mxmnet.model.Config
-  dim: 64
-  n_layer: 5
-  cutoff: 2.
