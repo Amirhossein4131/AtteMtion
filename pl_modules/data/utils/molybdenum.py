@@ -5,6 +5,7 @@ import numpy as np
 import os
 import json
 from pathlib import Path
+import random
 import re
 from time import sleep
 from tqdm import tqdm
@@ -33,7 +34,10 @@ from torch.optim.lr_scheduler import StepLR
 from transformers import GPT2Config, GPT2Model
 
 DATASETS = {
-    "Mo": os.path.join("data", "Mo")
+    "Mo": os.path.join("data", "Mo"),
+    "EFF": os.path.join("data", "EFF"),
+    "EFF_train": os.path.join("data", "EFF", "train_gv"),
+    "EFF_test": os.path.join("data", "EFF", "test"),
 }
 
 
@@ -70,11 +74,9 @@ def json_to_pmg_structure(db_name, json_file):
     """
     converts json files into cif format files
     """
-    cif_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
-                            "train_gv", "cifs")
+    cif_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "cifs")
 
-    json_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name],
-                             "train_gv", "jsons", json_file)
+    json_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "jsons", json_file)
 
     Path(cif_path).mkdir(parents=True,
                          exist_ok=True)
@@ -130,9 +132,10 @@ def read_json(filename):
 
 
 def get_db_keys(db_name):
-    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "gvectors")
     # I made the path compatible with hydra, but it would be better to include the path in config
-    keys = [f.split(".")[0] for f in os.listdir(db_path) if os.path.isfile(os.path.join(db_path, f))]
+    keys = sorted([f.split(".")[0] for f in os.listdir(db_path) if os.path.isfile(os.path.join(db_path, f))], key=int)
+    # print(keys)
 
     gvector_keys = []
     json_keys = []
@@ -143,24 +146,55 @@ def get_db_keys(db_name):
     return gvector_keys, json_keys
 
 
-def dataset(db_name):
+def get_element_type(example):
+    json_file = read_json(example)
+    element = json_file["atoms"][0][1]
+    return element
+
+
+def zero_pad(db_name, example, vector):
+    db_info_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "elements.json")
+    db_elements = read_json(db_info_path)
+    chemical_element = get_element_type(example)
+    zero_pad_length = len(db_elements)
+    pre_pad_length = db_elements[chemical_element]
+    post_pad_length = zero_pad_length - pre_pad_length
+    pre_pad_zeros = np.zeros(pre_pad_length)
+    post_pad_zeros = np.zeros(post_pad_length)
+
+    padded_vector = []
+    for i in range(len(vector)):
+        v = np.concatenate((pre_pad_zeros, vector[i], post_pad_zeros))
+        padded_vector.append(v)
+
+    padded_vector = np.array(padded_vector)
+    return padded_vector
+
+
+def dataset(db_name, split="train"):
     # Parinello vectors
-    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "gvectors")
-    # I made the path compatible with hydra, but it would be better to include the path in config
-    gvect_keys, json_keys = get_db_keys(db_name)
+    if split is None:
+        db_dir = db_name
+    else:
+        db_dir = f"{db_name}_{split}"
+
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_dir])
+    gvect_keys, json_keys = get_db_keys(db_dir)
+
     set = []
-    for item in gvect_keys[0:960]:
-        a = gvector(db_path + "/" + item)
+    for i in range(len(gvect_keys[0:10])):
+        a = gvector(db_path + "/" + "gvectors" + "/" + gvect_keys[i])
+        a = zero_pad(db_name, db_path + "/" + "jsons" + "/" + json_keys[i], a)
+        a = np.array(a, dtype='<f4')
         a = torch.tensor(a)
         set.append(a)
     parinello = set
-
     # edge indexes
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:960]):
-        structure = json_to_pmg_structure(db_name="Mo", json_file=item)
+    for item in tqdm(json_keys[0:10]):
+        structure = json_to_pmg_structure(db_name=db_dir, json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
         edges.append(e)
@@ -168,14 +202,18 @@ def dataset(db_name):
     return parinello, edge_indexes, edges
 
 
-def get_labels(db_name):
+def get_labels(db_name, split="train"):
     """gets labels (energy, force, ...)"""
+    if split is None:
+        db_dir = db_name
+    else:
+        db_dir = f"{db_name}_{split}"
 
     label = []
-    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_name], "train_gv", "jsons")
-    gvect_keys, json_keys = get_db_keys(db_name)
+    db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_dir], "jsons")
+    gvect_keys, json_keys = get_db_keys(db_dir)
 
-    for item in json_keys[0:960]:
+    for item in json_keys[0:10]:
         example = os.path.join(db_path, item)
         data = read_json(example)
         num_atoms = len(data["atoms"])
@@ -184,7 +222,6 @@ def get_labels(db_name):
         label.append(en_per_atom)
 
     label = torch.tensor(label, dtype=torch.float)
-
     return label
 
 
@@ -200,22 +237,84 @@ def create_sequence_tensor(feature, seq_len):
 
     return sequence
 
-def data(db_name):
+
+def shuffle_list(list1, list2, list3, list4):
+    combined_lists = list(zip(list1, list2, list3, list4))
+    random.shuffle(combined_lists)
+    shuffled_list1, shuffled_list2, shuffled_list3, shuffled_list4 = zip(*combined_lists)
+    return shuffled_list1, shuffled_list2, shuffled_list3, shuffled_list4
+
+
+def augment(l1, l2, l3, l4, aug_num, seq_len): # NEED TO ADD aug_nem and seq_len TO HYDRA
+    """
+    l1, l2 and l3 shall be Parinello vectors,
+    edge indexes and edges to be augmented.
+    """
+    l1_new = []
+    l2_new = []
+    l3_new = []
+    l4_new = []
+
+    seq_num = int(len(l1) / seq_len)
+
+    begin = 0
+    end = seq_len
+
+    for m in range(seq_num):
+        # selects the sequence to be shuffled
+        l11 = l1[begin: end]
+        l22 = l2[begin: end]
+        l33 = l3[begin: end]
+        l44 = l4[begin: end]
+
+        # inserts the original sequence into new lists
+        for i in range(len(l11)):
+            l1_new.append(l11[i])
+            l2_new.append(l22[i])
+            l3_new.append(l33[i])
+            l4_new.append(l44[i])
+
+        # inserts shuffled sequences to the list
+        for j in range(aug_num):
+            l1_sh, l2_sh, l3_sh, l4_sh = shuffle_list(l11, l22, l33, l44)
+            for k in range(len(l1_sh)):
+                l1_new.append(l1_sh[k])
+                l2_new.append(l2_sh[k])
+                l3_new.append(l3_sh[k])
+                l4_new.append(l4_sh[k])
+
+        begin += seq_len
+        end += seq_len
+
+    return l1_new, l2_new, l3_new, l4_new
+
+
+def data(db_name, split="train", augmentation=True): # NEED TO ADD augmentation TO HYDRA
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
-    parinello, edge_indexes, edges = dataset(db_name=db_name)
-    labels = get_labels(db_name)
+    parinello, edge_indexes, edges = dataset(db_name=db_name, split=split)
+    labels = get_labels(db_name, split=split)
 
-    db = []
-    for i in range(len(parinello)):
-        data = Data(x=parinello[i], edge_index=edge_indexes[i], to_j=edges[i], y=labels[i])
-        db.append(data)
+    if split == "train" and augmentation is True:
+        parinello_aug, edge_indexes_aug, edges_aug, labels_aug = augment(parinello, edge_indexes, edges,
+                                                                         labels, aug_num=9, seq_len=10)
+        db = []
+        for i in range(len(parinello_aug)):
+            data_point = Data(x=parinello_aug[i], edge_index=edge_indexes_aug[i], to_j=edges_aug[i], y=labels_aug[i])
+            db.append(data_point)
+        print(len(db))
+    else:
+        db = []
+        for i in range(len(parinello)):
+            data_point = Data(x=parinello[i], edge_index=edge_indexes[i], to_j=edges[i], y=labels[i])
+            db.append(data_point)
+        print(len(db))
 
     # Create a PyTorch Geometric DataLoader
-    dataset_size = len(db)
-    train_size = int(0.7 * dataset_size)
-    val_size = int(0.15 * dataset_size)
-    test_size = dataset_size - train_size - val_size
-    train_dataset, val_dataset, test_dataset = random_split(db, [train_size, val_size, test_size])
+    # dataset_size = len(db)
+    # train_size = int(0.7 * dataset_size)
+    # val_size = int(0.15 * dataset_size)
+    # test_size = dataset_size - train_size - val_size
+    # train_dataset, val_dataset, test_dataset = random_split(db, [train_size, val_size, test_size])
 
-    return train_dataset, val_dataset, test_dataset
+    return db

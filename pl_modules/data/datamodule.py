@@ -13,12 +13,14 @@ from pl_modules.data.utils.molybdenum import data as molybdata
 
 import os
 
+
 def extract_data(dataset):
     graphs = []
     loader = DataLoader(dataset, shuffle=False)
     for g in loader:
         graphs.append(g)
     return graphs
+
 
 class QMMineContextDataModule(pl.LightningDataModule):
     def __init__(self, data_path, split_name='sizes', batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
@@ -57,8 +59,8 @@ class QMMineContextDataModule(pl.LightningDataModule):
             cur_y = self.cached_data.data.y
             self.cached_data.data.y = torch.tensor(self.label_scaler.transform(np.array(cur_y)),
                                               dtype=cur_y.dtype, device=cur_y.device)
-        #self.val_dataset = self.create_dataset(full_dataset, self.structure_registers['val'])
-        #self.test_dataset = self.create_dataset(full_dataset, self.structure_registers['test'])
+        # self.val_dataset = self.create_dataset(full_dataset, self.structure_registers['val'])
+        # self.test_dataset = self.create_dataset(full_dataset, self.structure_registers['test'])
 
     def scale_used_data(self, used_data):
         #return
@@ -74,7 +76,6 @@ class QMMineContextDataModule(pl.LightningDataModule):
         used_data = [self.cached_data[i] for i in register.reshape(-1)]
         self.scale_used_data(used_data)
         return self.double_loader_trick(used_data, self.batch_size, register.shape[1])
-
 
     @staticmethod
     def double_loader_trick(data, batch_size, sequence_size):
@@ -94,7 +95,6 @@ class QMMineContextDataModule(pl.LightningDataModule):
         full_loader = DataLoader(contexts, batch_size=batch_size, shuffle=True)
         return full_loader
 
-
     def broken_dataloader(self, ds_name='train'):
         """
         A dataloader that's broken down into a standard one: each configuration is an individual training example.
@@ -104,7 +104,6 @@ class QMMineContextDataModule(pl.LightningDataModule):
         used_data = [self.cached_data[i] for i in register.reshape(-1)]
         self.scale_used_data(used_data)
         return DataLoader(used_data, batch_size=self.batch_size, shuffle=True)
-
 
     def no_context_dataloader(self, ds_name='train'):
         """
@@ -146,11 +145,10 @@ class QMMineContextDataModule(pl.LightningDataModule):
         return self.in_context_dataloader('test')
 
 
-
 class MolybdenumDataModule(pl.LightningDataModule):
-    def __init__(self, data_path, sequence_length=5, batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
+    def __init__(self, db_name, sequence_length=5, batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
         super(MolybdenumDataModule, self).__init__()
-        self.data_path = os.path.join(os.environ['PROJECT_ROOT'], data_path)
+        self.db_name = db_name
         self.sequence_length = sequence_length
         self.batch_size = batch_size
         self.label_scaler = hydra.utils.instantiate(label_scaler)
@@ -161,8 +159,9 @@ class MolybdenumDataModule(pl.LightningDataModule):
         self.setup()
 
     def setup(self, stage=None):
-        self.cached_data = QM9(root=os.path.join(self.data_path, 'download'))
-        self.train, self.val, self.test = molybdata('Mo')
+        self.train = molybdata(self.db_name, split="train")
+        self.val = molybdata(self.db_name, split="test")
+        self.test = self.val
 
         self.label_scaler = sklearn.preprocessing.StandardScaler()
         if self.label_scaler is not None:
@@ -171,7 +170,7 @@ class MolybdenumDataModule(pl.LightningDataModule):
                             axis=0).reshape(-1, 1))
 
     def scale_used_data(self, used_data):
-        #return
+        # return
         if self.label_scaler is not None:
             old_ys = np.stack([ud.y for ud in used_data], axis=0).reshape(-1, 1)
             new_ys = self.label_scaler.transform(old_ys)
@@ -229,14 +228,11 @@ class MolybdenumDataModule(pl.LightningDataModule):
         return self.in_context_dataloader(data)
 
 
-
-
-
 if __name__ == '__main__':
     os.chdir('../..')
     import dotenv
     from pathlib import Path
     dotenv.load_dotenv()
-    data_path = os.path.join(os.environ['PROJECT_ROOT'], 'data', 'QM9')
+    data_path = os.path.join(os.environ['PROJECT_ROOT'], 'data', 'EFF')
     datamodule = MolybdenumDataModule(data_path)
     datamodule.train_dataloader()
