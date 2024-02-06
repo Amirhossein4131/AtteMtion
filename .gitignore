@@ -1,1 +1,5 @@
+./data/*
+./conf/*
+**/__pycache__
+./outputs
 .env
