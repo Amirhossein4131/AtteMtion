@@ -13,7 +13,7 @@ class InContextWrap(pl.LightningModule):
     To sum up, this class will not be equipped with optimizer/dataloaders. I will make alternative train.py
     and if you like that, we can merge to a single approach.
     """
-    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn, tricks=None): # pass cfg.model as argument to this
+    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn=None, tricks=None): # pass cfg.model as argument to this
         super(InContextWrap, self).__init__()
         self.encoder = hydra.utils.instantiate(encoder, _recursive_=True)
         self.decoder = hydra.utils.instantiate(decoder, _recursive_=True)
@@ -30,7 +30,8 @@ class InContextWrap(pl.LightningModule):
         actual_batch_dot_batch = batch.batch * graphs_per_datapoint + batch.context_num
         # passing the entire batch to the decoder - perhaps coords/to_images should be used in a good encoder
         h = self.encoder(batch)
-        graph_h = self.graph_pooling_fn(h, actual_batch_dot_batch)
+        if self.graph_pooling_fn:
+            graph_h = self.graph_pooling_fn(h, actual_batch_dot_batch)
         graph_x = graph_h.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint, -1)
 
         zs = self._combine(graph_x, batch.y)[:, :-1]

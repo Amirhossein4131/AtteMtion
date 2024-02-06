@@ -1,6 +1,0 @@
-_target_: pl_modules.nn.graph_models.GATWrap
-in_channels: 11
-hidden_channels: 64
-num_layers: 6
-out_channels: null
-act: ${load:torch.nn.functional.silu}

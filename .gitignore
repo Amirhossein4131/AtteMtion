@@ -1,5 +1,6 @@
 ./data/*
 ./conf/*
+./hydra/*
 **/__pycache__
 ./outputs
 .env

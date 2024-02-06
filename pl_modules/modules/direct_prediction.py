@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 
 class GraphFeaturePredictor(pl.LightningModule):
-    def __init__(self, gnn, pool, readout):
+    def __init__(self, gnn, readout=None, pool=None):
         super(GraphFeaturePredictor, self).__init__()
         self.gnn = hydra.utils.instantiate(gnn)
         self.pool = pool
@@ -21,9 +21,11 @@ class GraphFeaturePredictor(pl.LightningModule):
 
     def forward(self, batch):
         node_representation = self.gnn(batch)
-        graph_representation = self.pool(node_representation, batch.batch)
+        if self.pool:
+            graph_representation = self.pool(node_representation, batch.batch)
         # passing the entire batch to the decoder - perhaps coords/to_images should be used in a good encoder
-        out = self.readout(graph_representation)
+        if self.out:
+            out = self.readout(graph_representation)
         return out
 
     def general_step(self, batch, step_name):

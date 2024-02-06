@@ -182,7 +182,7 @@ def dataset(db_name, split="train"):
     gvect_keys, json_keys = get_db_keys(db_dir)
 
     set = []
-    for i in range(len(gvect_keys[0:10])):
+    for i in range(len(gvect_keys[0:datapoint_limit])):
         a = gvector(db_path + "/" + "gvectors" + "/" + gvect_keys[i])
         a = zero_pad(db_name, db_path + "/" + "jsons" + "/" + json_keys[i], a)
         a = np.array(a, dtype='<f4')
@@ -193,7 +193,7 @@ def dataset(db_name, split="train"):
     edge_indexes = []
     edges = []
 
-    for item in tqdm(json_keys[0:10]):
+    for item in tqdm(json_keys[0:datapoint_limit]):
         structure = json_to_pmg_structure(db_name=db_dir, json_file=item)
         ei, e = get_edge_indexes(structure)
         edge_indexes.append(ei)
@@ -236,6 +236,7 @@ def create_sequence_tensor(feature, seq_len):
         sequence.append(sub_sequence)
 
     return sequence
+
 
 
 def shuffle_list(list1, list2, list3, list4):
@@ -294,6 +295,8 @@ def data(db_name, split="train", augmentation=True): # NEED TO ADD augmentation 
     warnings.filterwarnings("ignore")
     parinello, edge_indexes, edges = dataset(db_name=db_name, split=split)
     labels = get_labels(db_name, split=split)
+
+
 
     if split == "train" and augmentation is True:
         parinello_aug, edge_indexes_aug, edges_aug, labels_aug = augment(parinello, edge_indexes, edges,

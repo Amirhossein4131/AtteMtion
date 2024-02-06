@@ -1,7 +1,0 @@
-_target_: pl_modules.data.datamodule.MolybdenumDataModule
-data_path: ${oc.env:PROJECT_ROOT}/data/Mo
-split_name: sizes
-batch_size: 64
-modification: null
-label_scaler:
-  _target_: sklearn.preprocessing.StandardScaler
