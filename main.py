@@ -20,37 +20,22 @@ assert (
 
 OmegaConf.register_new_resolver("load", lambda x: eval(x))
 
-
-def parse_args():
-    parser = ArgumentParser()
-    parser.add_argument("--accelerator", default=None)
-    parser.add_argument("--devices", default=None)
-    args = parser.parse_args()
-    return args
-
-
-@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='in_context.yaml')
-# Feel free to test the behavior of hydra: I made two equivalent versions of Your params: single_file and composed_conf
+@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='in_context')
 def main(cfg: DictConfig):
-    args = parse_args()
+    # Instantiate data module
     datamodule = hydra.utils.instantiate(cfg.datamodule, _recursive_=False)
     train_dataloader = datamodule.train_dataloader()
     val_dataloader = datamodule.val_dataloader()
     test_dataloader = datamodule.test_dataloader()
 
+    # Instantiate model
     model = hydra.utils.instantiate(cfg.model, _recursive_=False)
 
-    trainer = pl.Trainer(
-        accelerator=args.accelerator,
-        devices=args.devices,
-        max_epochs=cfg.trainer.max_epochs,
-        log_every_n_steps=cfg.trainer.log_interval
-    )
+    # Instantiate trainer with Hydra config
+    trainer = pl.Trainer(**cfg.trainer)
 
-    model(next(iter(train_dataloader))) # just a testing line
-
-    trainer.fit(model, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
-
+    # Fit the model
+    trainer.fit(model, train_dataloader, val_dataloader)
 
 if __name__ == "__main__":
     main()
