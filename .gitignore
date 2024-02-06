@@ -1,1 +1,4 @@
-data/QM9/download/*
+./data/*
+**/__pycache__
+./outputs
+.env
