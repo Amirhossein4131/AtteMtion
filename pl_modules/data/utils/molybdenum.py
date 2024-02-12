@@ -171,7 +171,7 @@ def zero_pad(db_name, example, vector):
     return padded_vector
 
 
-def dataset(db_name, split="train"):
+def dataset(db_name, split="train", datapoint_limit=None):
     # Parinello vectors
     if split is None:
         db_dir = db_name
@@ -202,7 +202,7 @@ def dataset(db_name, split="train"):
     return parinello, edge_indexes, edges
 
 
-def get_labels(db_name, split="train"):
+def get_labels(db_name, split="train", datapoint_limit=None):
     """gets labels (energy, force, ...)"""
     if split is None:
         db_dir = db_name
@@ -213,7 +213,7 @@ def get_labels(db_name, split="train"):
     db_path = os.path.join(os.environ['PROJECT_ROOT'], DATASETS[db_dir], "jsons")
     gvect_keys, json_keys = get_db_keys(db_dir)
 
-    for item in json_keys[0:10]:
+    for item in json_keys[0:datapoint_limit]:
         example = os.path.join(db_path, item)
         data = read_json(example)
         num_atoms = len(data["atoms"])
@@ -290,13 +290,11 @@ def augment(l1, l2, l3, l4, aug_num, seq_len): # NEED TO ADD aug_nem and seq_len
     return l1_new, l2_new, l3_new, l4_new
 
 
-def data(db_name, split="train", augmentation=True): # NEED TO ADD augmentation TO HYDRA
+def data(db_name, split="train", augmentation=True, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
-    parinello, edge_indexes, edges = dataset(db_name=db_name, split=split)
-    labels = get_labels(db_name, split=split)
-
-
+    parinello, edge_indexes, edges = dataset(db_name=db_name, split=split, datapoint_limit=datapoint_limit)
+    labels = get_labels(db_name, split=split, datapoint_limit=datapoint_limit)
 
     if split == "train" and augmentation is True:
         parinello_aug, edge_indexes_aug, edges_aug, labels_aug = augment(parinello, edge_indexes, edges,

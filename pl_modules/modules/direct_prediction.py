@@ -23,9 +23,13 @@ class GraphFeaturePredictor(pl.LightningModule):
         node_representation = self.gnn(batch)
         if self.pool:
             graph_representation = self.pool(node_representation, batch.batch)
+        else:
+            graph_representation = node_representation
         # passing the entire batch to the decoder - perhaps coords/to_images should be used in a good encoder
-        if self.out:
+        if self.readout:
             out = self.readout(graph_representation)
+        else:
+            out = graph_representation
         return out
 
     def general_step(self, batch, step_name):

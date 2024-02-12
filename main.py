@@ -1,9 +1,10 @@
-from model import *  # please avoid the import * clause
+#from pl_modules.model import *  # please avoid the import * clause
 from data import *
-
+from pathlib import Path
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
+import os
 import torch_geometric
 from torch.optim import Adam
 from argparse import ArgumentParser
@@ -22,7 +23,7 @@ assert (
 OmegaConf.register_new_resolver("load", lambda x: eval(x))
 
 
-@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='in_context')
+@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='regression')
 # Feel free to test the behavior of hydra: I made two equivalent versions of Your params: single_file and composed_conf
 def main(cfg: DictConfig):
     # Instantiate data module

@@ -152,7 +152,8 @@ class QMMineContextDataModule(pl.LightningDataModule):
 
 
 class MolybdenumDataModule(pl.LightningDataModule):
-    def __init__(self, db_name, sequence_length=5, batch_size=64, label_scaler=None, modification=None, *args, **kwargs):
+    def __init__(self, db_name, sequence_length=5, batch_size=64, label_scaler=None, modification=None,
+                 datapoint_limit=None, *args, **kwargs):
         super(MolybdenumDataModule, self).__init__()
         self.db_name = db_name
         self.sequence_length = sequence_length
@@ -166,10 +167,9 @@ class MolybdenumDataModule(pl.LightningDataModule):
         self.setup()
 
     def setup(self, stage=None):
-        self.train = molybdata(self.db_name, split="train")
-        self.val = molybdata(self.db_name, split="test")
+        self.train = molybdata(self.db_name, split="train", datapoint_limit=self.datapoint_limit)
+        self.val = molybdata(self.db_name, split="test", datapoint_limit=self.datapoint_limit)
         self.test = self.val
-
 
         self.label_scaler = self.label_scaler
         if self.label_scaler is not None:
