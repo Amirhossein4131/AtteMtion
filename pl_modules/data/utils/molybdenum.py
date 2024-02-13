@@ -290,7 +290,7 @@ def augment(l1, l2, l3, l4, aug_num, seq_len): # NEED TO ADD aug_nem and seq_len
     return l1_new, l2_new, l3_new, l4_new
 
 
-def data(db_name, split="train", augmentation=True, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
+def data(db_name, split="train", augmentation=False, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
     parinello, edge_indexes, edges = dataset(db_name=db_name, split=split, datapoint_limit=datapoint_limit)

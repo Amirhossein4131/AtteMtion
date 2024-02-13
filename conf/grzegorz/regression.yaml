@@ -24,7 +24,7 @@ datamodule:
   modification: breakdown       # in-context OR breakdown
   batch_size: 128
   db_name: EFF
-  datapoint_limit: 10
+  datapoint_limit: 1000
   label_scaler:
     _target_: sklearn.preprocessing.StandardScaler
 
