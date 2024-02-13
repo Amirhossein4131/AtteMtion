@@ -1,6 +1,7 @@
 import torch
 import pytorch_lightning as pl
 import hydra
+from torch.optim.lr_scheduler import StepLR
 
 import torch.nn.functional as F
 from torch.optim import Adam
@@ -14,10 +15,8 @@ class GraphFeaturePredictor(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=0.0001)
-        #scheduler = StepLR(optimizer, step_size=2000, gamma=0.5)
-
-        return {
-            'optimizer': optimizer}
+        scheduler = {'scheduler': StepLR(optimizer, step_size=20, gamma=0.5), 'interval': 'epoch'}
+        return [optimizer], [scheduler]
 
     def forward(self, batch):
         node_representation = self.gnn(batch)
@@ -35,20 +34,23 @@ class GraphFeaturePredictor(pl.LightningModule):
     def general_step(self, batch, step_name):
         out = self(batch)
         loss = F.mse_loss(out, batch.y)
-        self.log_dict({
-            'train_loss': loss,
-            }, on_step=False, on_epoch=True, prog_bar=True
-        )
         return loss
 
     def training_step(self, batch, batch_idx):
         loss = self.general_step(batch, 'train')
+        self.log_dict({
+            'train_loss': loss, 'learning_rate': self.trainer.optimizers[0].param_groups[0]['lr']
+            }, on_step=False, on_epoch=True, prog_bar=True
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.general_step(batch, 'val')
+        self.log_dict({
+            'val_loss': loss,
+            }, on_step=False, on_epoch=True, prog_bar=True
+        )
         return loss
 
     def test_step(self, batch, batch_idx):
-        loss = self.general_step(batch, 'test')
-        return loss
+        pass
