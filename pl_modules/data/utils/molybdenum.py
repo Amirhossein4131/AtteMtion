@@ -37,7 +37,7 @@ DATASETS = {
     "Mo": os.path.join("data", "Mo"),
     "EFF": os.path.join("data", "EFF"),
     "EFF_train": os.path.join("data", "EFF", "train_gv"),
-    "EFF_test": os.path.join("data", "EFF", "test"),
+    "EFF_test": os.path.join("data", "EFF", "test3"),
 }
 
 

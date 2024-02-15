@@ -6,16 +6,19 @@ from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
 from torch.optim import Adam
 
+
 class GraphFeaturePredictor(pl.LightningModule):
-    def __init__(self, gnn, readout=None, pool=None):
+    def __init__(self, gnn, readout=None, pool=None, optimizer_cfg=None):
         super(GraphFeaturePredictor, self).__init__()
         self.gnn = hydra.utils.instantiate(gnn)
         self.pool = pool
         self.readout = hydra.utils.instantiate(readout)
+        self.optimizer_cfg = hydra.utils.instantiate(optimizer_cfg)
 
     def configure_optimizers(self):
-        optimizer = Adam(self.parameters(), lr=0.0001)
-        scheduler = {'scheduler': StepLR(optimizer, step_size=20, gamma=0.5), 'interval': 'epoch'}
+        optimizer = Adam(self.parameters(), lr=self.optimizer_cfg.lr)
+        scheduler = {'scheduler': StepLR(optimizer, self.optimizer_cfg.step_size,
+                     gamma=self.optimizer_cfg.gamma), 'interval': 'epoch'}
         return [optimizer], [scheduler]
 
     def forward(self, batch):
@@ -37,7 +40,7 @@ class GraphFeaturePredictor(pl.LightningModule):
         return loss
 
     def training_step(self, batch, batch_idx):
-        loss = self.general_step(batch, 'train')
+        loss = self.general_step(batch, step_name='train')
         self.log_dict({
             'train_loss': loss, 'learning_rate': self.trainer.optimizers[0].param_groups[0]['lr']
             }, on_step=False, on_epoch=True, prog_bar=True
@@ -45,7 +48,7 @@ class GraphFeaturePredictor(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss = self.general_step(batch, 'val')
+        loss = self.general_step(batch, step_name='val')
         self.log_dict({
             'val_loss': loss,
             }, on_step=False, on_epoch=True, prog_bar=True

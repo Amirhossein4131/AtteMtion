@@ -1,4 +1,3 @@
-#from pl_modules.model import *  # please avoid the import * clause
 from data import *
 from pathlib import Path
 import torch
@@ -40,6 +39,7 @@ def main(cfg: DictConfig):
 
     # Fit the model
     trainer.fit(model, train_dataloader, val_dataloader)
+
 
 if __name__ == "__main__":
     main()

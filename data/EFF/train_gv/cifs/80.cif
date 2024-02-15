@@ -1,0 +1,42 @@
+# generated using pymatgen
+data_Mo
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.27808089
+_cell_length_b   7.27808089
+_cell_length_c   3.63904047
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mo
+_chemical_formula_sum   Mo16
+_cell_volume   192.76165285
+_cell_formula_units_Z   16
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Mo  Mo0  1  0.00494660  7.28502000  -0.01353860  1
+  Mo  Mo1  1  1.82362000  1.82078000  0.01170030  1
+  Mo  Mo2  1  1.82888000  7.27137000  1.82638000  1
+  Mo  Mo3  1  7.28100000  1.82416000  1.81325000  1
+  Mo  Mo4  1  3.63945000  7.29175000  3.63489000  1
+  Mo  Mo5  1  5.46152000  1.81018000  0.00465059  1
+  Mo  Mo6  1  5.46041000  -0.01221530  1.81498000  1
+  Mo  Mo7  1  3.63424000  1.81513000  1.82230000  1
+  Mo  Mo8  1  7.28364000  3.64265000  3.64766000  1
+  Mo  Mo9  1  1.80430000  5.45812000  3.63224000  1
+  Mo  Mo10  1  1.82312000  3.64642000  1.81367000  1
+  Mo  Mo11  1  7.28072000  5.46321000  1.82017000  1
+  Mo  Mo12  1  3.64146000  3.64543000  0.00087174  1
+  Mo  Mo13  1  5.46043000  5.44633000  3.63916000  1
+  Mo  Mo14  1  5.44415000  3.63417000  1.81847000  1
+  Mo  Mo15  1  3.63020000  5.45957000  1.82515000  1
