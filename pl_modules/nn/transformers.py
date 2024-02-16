@@ -1,12 +1,5 @@
 import torch
-import torch_geometric
-import pytorch_lightning as pl
-import transformers
-
 from torch.nn import Module, Linear
-from torch_geometric.nn import GATv2Conv
-from torch_geometric.nn import MessagePassing
-
 from transformers import GPT2Model, GPT2Config
 
 
@@ -30,23 +23,7 @@ class GPT2BasedModel(Module):
         self._read_in = Linear(n_dims, n_embd)
         self._read_out = Linear(n_embd, 1)
         self._read_in_y = Linear(1, 1)
-
         self._backbone = GPT2Model(configuration)
-
-    @staticmethod
-    def _combine(xs_b, ys_b):
-        """Interleaves the x's and the y's into a single sequence."""
-        bsize, points, dim = xs_b.shape
-        ys_b_wide = torch.cat(
-            (
-                ys_b.view(bsize, points, 1),
-                torch.zeros(bsize, points, dim - 1, device=ys_b.device),
-            ),
-            axis=2,
-        )
-        zs = torch.stack((xs_b, ys_b_wide), dim=2)
-        zs = zs.view(bsize, 2 * points, dim)
-        return zs
 
     def forward(self, input_tensor, label_tensor):
         y = self._read_in_y(label_tensor)
@@ -56,4 +33,3 @@ class GPT2BasedModel(Module):
         output = gpt2_output.last_hidden_state[:, -1, :]
 
         return output
-

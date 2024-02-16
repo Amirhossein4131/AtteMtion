@@ -1,0 +1,28 @@
+run:
+  hydra:
+    dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
+trainer:
+  max_epochs: 5000
+model:
+  _target_: pl_modules.modules.direct_prediction.GraphFeaturePredictor
+  pool: ${load:torch_geometric.nn.global_mean_pool}
+  gnn:
+    _target_: pl_modules.nn.graph_models.GATv2ConvWrap
+    in_channels: 58
+    out_channels: 64
+    heads: 3
+  readout:
+    _target_: torch.nn.Linear
+    in_features: 192
+    out_features: 1
+  optimizer_cfg:
+    lr: 0.1
+    step_size: 1000
+    gamma: 0.5
+datamodule:
+  _target_: pl_modules.data.datamodule.MolybdenumDataModule
+  modification: breakdown
+  batch_size: 128
+  db_name: EFF
+  datapoint_limit: 1800
+  label_scaler: null

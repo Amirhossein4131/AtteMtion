@@ -1,8 +1,10 @@
 import torch
 import pytorch_lightning as pl
 import hydra
+from torch.optim.lr_scheduler import StepLR
 
 from torch.optim import Adam
+
 
 class InContextWrap(pl.LightningModule):
     """ This class is designed to work just like InContextGNN provided correct configuration.
@@ -13,13 +15,15 @@ class InContextWrap(pl.LightningModule):
     To sum up, this class will not be equipped with optimizer/dataloaders. I will make alternative train.py
     and if you like that, we can merge to a single approach.
     """
-    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn=None, tricks=None): # pass cfg.model as argument to this
+    def __init__(self, encoder, decoder, label_readout, optimizer_cfg, pool=None, tricks=None): # pass cfg.model as argument to this
         super(InContextWrap, self).__init__()
+        self.optimizer_cfg = hydra.utils.instantiate(optimizer_cfg)
         self.encoder = hydra.utils.instantiate(encoder, _recursive_=True)
         self.decoder = hydra.utils.instantiate(decoder, _recursive_=True)
-        self.graph_pooling_fn = graph_pooling_fn
+        self.graph_pooling_fn = pool
         self.label_readout = hydra.utils.instantiate(label_readout)
         self.tricks = tricks
+
         # going to wrap all extra nn in the decoder, so they fall off
         # no datasets here, I will write an example datamodule for my model
         # this model will be designed to behave just like InContextGNN, but with enhanced modularity
@@ -63,11 +67,10 @@ class InContextWrap(pl.LightningModule):
         return batch
 
     def configure_optimizers(self):
-        optimizer = Adam(self.parameters(), lr=0.0001)
-
-        return {
-            'optimizer': optimizer,
-        }
+        optimizer = Adam(self.parameters(), lr=self.optimizer_cfg.lr)
+        scheduler = {'scheduler': StepLR(optimizer, self.optimizer_cfg.step_size,
+                                         gamma=self.optimizer_cfg.gamma), 'interval': 'epoch'}
+        return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
         batch = self.apply_tricks(batch, step='train')

@@ -238,7 +238,6 @@ def create_sequence_tensor(feature, seq_len):
     return sequence
 
 
-
 def shuffle_list(list1, list2, list3, list4):
     combined_lists = list(zip(list1, list2, list3, list4))
     random.shuffle(combined_lists)
@@ -290,7 +289,7 @@ def augment(l1, l2, l3, l4, aug_num, seq_len): # NEED TO ADD aug_nem and seq_len
     return l1_new, l2_new, l3_new, l4_new
 
 
-def data(db_name, split="train", augmentation=False, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
+def data(db_name, split="train", augmentation=True, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
     parinello, edge_indexes, edges = dataset(db_name=db_name, split=split, datapoint_limit=datapoint_limit)
@@ -298,7 +297,7 @@ def data(db_name, split="train", augmentation=False, datapoint_limit=None): # NE
 
     if split == "train" and augmentation is True:
         parinello_aug, edge_indexes_aug, edges_aug, labels_aug = augment(parinello, edge_indexes, edges,
-                                                                         labels, aug_num=9, seq_len=10)
+                                                                         labels, aug_num=1, seq_len=2)
         db = []
         for i in range(len(parinello_aug)):
             data_point = Data(x=parinello_aug[i], edge_index=edge_indexes_aug[i], to_j=edges_aug[i], y=labels_aug[i])
