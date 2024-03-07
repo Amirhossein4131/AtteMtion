@@ -23,6 +23,7 @@ class GraphFeaturePredictor(pl.LightningModule):
 
     def forward(self, batch):
         node_representation = self.gnn(batch)
+
         if self.pool:
             graph_representation = self.pool(node_representation, batch.batch)
         else:

@@ -4,6 +4,7 @@ run:
 
 trainer:
   max_epochs: 5000
+  gpus: 0
 
 model:
   _target_: pl_modules.modules.direct_prediction.GraphFeaturePredictor
@@ -11,16 +12,32 @@ model:
   gnn:
     _target_: pl_modules.imports.dimenet.model.DimeNetPlusPlusWrap
     num_targets: 1
+    hidden_channels: 128
+    num_blocks: 4
+    int_emb_size: 64
+    basis_emb_size: 8
+    out_emb_channels: 256
+    num_spherical: 7
+    num_radial: 6
+    otf_graph: True
+    cutoff: 10.0
+    max_num_neighbors: 20
+    envelope_exponent: 5
+    num_before_skip: 1
+    num_after_skip: 2
+    num_output_layers: 3
   readout: null
   optimizer_cfg:
-    lr: 0.0000001
+    lr: 0.0001
     step_size: 1000
     gamma: 0.5
 
 datamodule:
   _target_: pl_modules.data.dime_data.DimeNetDataModule
-  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
-  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
+  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
   elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
-  separate_test: False
-  batch_size: 2
+  separate_test: True
+  batch_size: 16
+  label_scaler:
+    _target_: sklearn.preprocessing.StandardScaler
