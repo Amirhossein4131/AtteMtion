@@ -37,6 +37,9 @@ class GraphFeaturePredictor(pl.LightningModule):
     def general_step(self, batch, step_name):
         out = self(batch)
         loss = F.mse_loss(out, batch.y)
+        # loss_check = F.mse_loss(torch.zeros_like(out), batch.y)
+        # loss_check2 = F.mse_loss(torch.full_like(out, mean_label), batch.y)
+
         return loss
 
     def training_step(self, batch, batch_idx):

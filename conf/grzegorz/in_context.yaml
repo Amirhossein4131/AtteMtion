@@ -11,7 +11,7 @@ model:
   encoder:
     _target_: pl_modules.nn.graph_models.GATWrap
     in_channels: 58
-    out_channels: 128
+    out_channels: 64
     hidden_channels: 64
     num_layers: 3
     heads: 4        # comment for GCN
@@ -20,8 +20,8 @@ model:
     config:
       _target_: transformers.GPT2Config
       n_positions: 32
-      n_embd: 128
-      n_layer: 12
+      n_embd: 64
+      n_layer: 6
       n_head: 4
       resid_pdrop: 0.0
       embd_pdrop: 0.0
@@ -29,7 +29,7 @@ model:
       use_cache: False
   label_readout:
     _target_: torch.nn.Linear
-    in_features: 128
+    in_features: 64
     out_features: 1
   optimizer_cfg:
     lr: 0.1
@@ -39,9 +39,9 @@ model:
 datamodule:
   _target_: pl_modules.data.datamodule.MolybdenumDataModule
   modification: no-context       # OR no-context
-  sequence_length: 2
-  batch_size: 64
+  sequence_length: 10
+  batch_size: 16
   db_name: EFF
-  datapoint_limit: 1800
+  datapoint_limit: 10
   label_scaler:
   #  _target_: sklearn.preprocessing.StandardScaler

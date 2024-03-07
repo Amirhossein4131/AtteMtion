@@ -315,7 +315,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         out_emb_channels=256,
         num_spherical=7,
         num_radial=6,
-        otf_graph=False,
+        otf_graph=True,
         cutoff=10.0,
         max_num_neighbors=20,
         envelope_exponent=5,
@@ -329,7 +329,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         self.cutoff = cutoff
         self.max_num_neighbors = max_num_neighbors
         self.otf_graph = otf_graph
-
+        self.use_embeddings = use_embeddings
         self.readout = readout
 
         super(DimeNetPlusPlusWrap, self).__init__(

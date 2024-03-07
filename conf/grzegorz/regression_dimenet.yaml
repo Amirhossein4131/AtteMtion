@@ -1,0 +1,26 @@
+run:
+  hydra:
+    dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+trainer:
+  max_epochs: 5000
+
+model:
+  _target_: pl_modules.modules.direct_prediction.GraphFeaturePredictor
+  pool: null
+  gnn:
+    _target_: pl_modules.imports.dimenet.model.DimeNetPlusPlusWrap
+    num_targets: 1
+  readout: null
+  optimizer_cfg:
+    lr: 0.0000001
+    step_size: 1000
+    gamma: 0.5
+
+datamodule:
+  _target_: pl_modules.data.dime_data.DimeNetDataModule
+  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
+  separate_test: False
+  batch_size: 2
