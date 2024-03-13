@@ -14,21 +14,31 @@ model:
     out_channels: 64
     hidden_channels: 64
     num_layers: 3
-    heads: 4        # comment for GCN
+    #heads: 4        # comment for GCN
   readout:
     _target_: torch.nn.Linear
     in_features: 64
     out_features: 1
   optimizer_cfg:
-    lr: 0.1
+    lr: 0.001
     step_size: 1000
     gamma: 0.5
 
 datamodule:
   _target_: pl_modules.data.datamodule.MolybdenumDataModule
   modification: breakdown       # in-context OR breakdown
-  batch_size: 128
-  db_name: EFF
-  datapoint_limit: 1800
+  batch_size: 64
+  db_name: Cu_strain
+  datapoint_limit: 1000
   label_scaler:
   #  _target_: sklearn.preprocessing.StandardScaler
+
+#datamodule:
+#  _target_: pl_modules.data.dime_data.DimeNetDataModule
+#  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
+#  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
+#  elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
+#  separate_test: True
+#  batch_size: 16
+#  label_scaler:
+#    _target_: sklearn.preprocessing.StandardScaler

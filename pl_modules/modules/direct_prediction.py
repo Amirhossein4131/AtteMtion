@@ -55,7 +55,7 @@ class GraphFeaturePredictor(pl.LightningModule):
         loss = self.general_step(batch, step_name='val')
         self.log_dict({
             'val_loss': loss,
-            }, on_step=False, on_epoch=True, prog_bar=True
+            }, on_step=True, on_epoch=True, prog_bar=True
         )
         return loss
 

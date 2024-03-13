@@ -1,45 +1,95 @@
 import torch
 import pytorch_lightning as pl
 import hydra
-from torch.optim.lr_scheduler import StepLR
+import torch_scatter
 
 from torch.optim import Adam
 
-
 class InContextWrap(pl.LightningModule):
-    def __init__(self, encoder, decoder, label_readout, optimizer_cfg, pool=None, tricks=None): # pass cfg.model as argument to this
+    """ This class is designed to work just like InContextGNN provided correct configuration.
+    Layers will all be encapsulated inside encoder/decoder submodules. Encoder can be seen as a submodule
+    that starts with a node-level representation and ends up with graph-level representation. Decoder
+    takes those representations to yield a final estimate. As _combine is symbolic and quite peculiar,
+    it is left inside this wrapper class.
+    To sum up, this class will not be equipped with optimizer/dataloaders. I will make alternative train.py
+    and if you like that, we can merge to a single approach.
+    """
+    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn=None, tricks=None, weight_loaders=None): # pass cfg.model as argument to this
         super(InContextWrap, self).__init__()
-        self.optimizer_cfg = hydra.utils.instantiate(optimizer_cfg)
         self.encoder = hydra.utils.instantiate(encoder, _recursive_=True)
         self.decoder = hydra.utils.instantiate(decoder, _recursive_=True)
-        self.graph_pooling_fn = pool
+        self.graph_pooling_fn = graph_pooling_fn
         self.label_readout = hydra.utils.instantiate(label_readout)
-        self.tricks = tricks
+        if tricks:
+            self.tricks = [hydra.utils.instantiate(t, _recursive_=True) for t in tricks]
+        else:
+            self.tricks = []
 
-        # going to wrap all extra nn in the decoder, so they fall off
-        # no datasets here, I will write an example datamodule for my model
-        # this model will be designed to behave just like InContextGNN, but with enhanced modularity
+        if weight_loaders is None:
+            weight_loaders = []
+        self.weight_loaders = weight_loaders
+        for loader in self.weight_loaders:
+            loader.apply(self)
+
+
+    @staticmethod
+    def map_graph_outputs(graph_h, batch):
+        num_rows = torch.max(batch.context) + 1
+        num_cols = torch.max(batch.num_in_context) + 1
+        num_channels = graph_h.shape[-1]
+
+
+        x_index = batch.context
+        y_index = batch.num_in_context
+
+        flat_indices = x_index * num_cols + y_index
+        flat_graphs = graph_h.reshape(-1, num_channels)
+
+        flat_graphs = flat_graphs[y_index >= 0]
+        flat_indices = flat_indices[y_index >= 0]
+
+
+        out_tensor = torch_scatter.scatter_add(
+            src=flat_graphs,
+            index=flat_indices.reshape(-1, 1),
+            dim_size=num_cols*num_rows,
+            dim=0
+            ).reshape(num_rows, num_cols, num_channels)
+        return out_tensor
+
+    @staticmethod
+    def loss_at_labels(llm_out, y):
+        y_predictions = llm_out[:, ::2]
+        return torch.nn.functional.mse_loss(y_predictions, y)
 
     def forward(self, batch):
-        # encoder
-        graphs_per_datapoint = torch.max(batch.context_num) + 1
-        actual_batch_dot_batch = batch.batch * graphs_per_datapoint + batch.context_num
-        # passing the entire batch to the decoder - perhaps coords/to_images should be used in a good encoder
-        h = self.encoder(batch)
+        if self.encoder:
+            h = self.encoder(batch)
+        else:
+            h = batch.x
         if self.graph_pooling_fn:
-            graph_h = self.graph_pooling_fn(h, actual_batch_dot_batch)
-        graph_x = graph_h.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint, -1)
+            graph_h = self.graph_pooling_fn(h, batch.batch)
+        else:
+            graph_h = h
 
-        print(graph_x.shape)
-        zs = self._combine(graph_x, batch.y)[:, :-1]
-        print(zs.shape)
-        llm_out = self.decoder(inputs_embeds=zs).last_hidden_state[:, -1, :]
-        out = self.label_readout(llm_out)
-        return out
+        graph_x = self.map_graph_outputs(graph_h, batch)
+        graph_y = self.map_graph_outputs(batch.y.reshape(-1, 1), batch)
+        # graph_x_old = graph_h.reshape(datapoints, graphs_per_datapoint, -1)
+        # assert torch.all(torch.isclose(graph_x, graph_x_old))
+
+
+        zs = self._combine(graph_x, graph_y)[:, :-1]
+        llm_outs = self.decoder(inputs_embeds=zs).last_hidden_state
+        outs = self.label_readout(llm_outs[:, ::2, :])
+        last_out = outs[:, -1, :]
+        last_y = graph_y[:, -1, :]
+        ys = graph_y
+
+        return last_out, last_y, outs, ys
 
     @staticmethod
     def _combine(xs_b, ys_b):
-        """Interleaves the x's and the y's into a single sequence."""
+        """Integrates the x's and the y's into a single sequence."""
         bsize, points, dim = xs_b.shape
         ys_b_wide = torch.cat(
             (
@@ -55,20 +105,23 @@ class InContextWrap(pl.LightningModule):
     def apply_tricks(self, batch, step='train'):
         if self.tricks is not None:
             for trick in self.tricks:
-                batch = trick.apply(batch, step=step)
+                batch = trick.apply(batch, split=step)
         return batch
 
     def configure_optimizers(self):
-        optimizer = Adam(self.parameters(), lr=self.optimizer_cfg.lr)
-        scheduler = {'scheduler': StepLR(optimizer, self.optimizer_cfg.step_size,
-                                         gamma=self.optimizer_cfg.gamma), 'interval': 'epoch'}
-        return [optimizer], [scheduler]
+        optimizer = Adam(self.parameters(), lr=1e-5)
+
+        return {
+            'optimizer': optimizer,
+        }
 
     def training_step(self, batch, batch_idx):
         batch = self.apply_tricks(batch, step='train')
-        graphs_per_datapoint = torch.max(batch.context_num) + 1
-        output = self(batch)
-        loss = torch.nn.functional.mse_loss(output, batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:,-1])
+        graphs_per_datapoint = torch.max(batch.num_in_context) + 1
+        out, label, outs, labels = self(batch)
+        single_loss = torch.nn.functional.mse_loss(out, label)
+        full_loss = torch.nn.functional.mse_loss(outs, labels)
+        loss = full_loss
         self.log_dict({'train_loss': loss,
                        'learning_rate': self.trainer.optimizers[0].param_groups[0]['lr'],
                        }, on_step=True, on_epoch=True, prog_bar=True)
@@ -76,12 +129,18 @@ class InContextWrap(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         batch = self.apply_tricks(batch, step='val')
-        graphs_per_datapoint = torch.max(batch.context_num) + 1
-        output = self(batch)
-        loss = torch.nn.functional.mse_loss(output, batch.y.reshape(torch.max(batch.batch) + 1, graphs_per_datapoint)[:,[-1]])
+        graphs_per_datapoint = torch.max(batch.num_in_context) + 1
+        out, label, outs, labels = self(batch)
+        single_loss = torch.nn.functional.mse_loss(out, label)
+        full_loss = torch.nn.functional.mse_loss(outs, labels)
+        loss = full_loss
         self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    @property
-    def n_params(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+    def test_step(self, batch, batch_idx):
+        batch = self.apply_tricks(batch, step='test')
+        graphs_per_datapoint = torch.max(batch.num_in_context) + 1
+        out, label, outs, labels = self(batch)
+        loss = torch.nn.functional.mse_loss(out, batch.y.reshape(torch.max(batch.context) + 1, graphs_per_datapoint)[:, [-1]])
+        self.log_dict({'test_loss': loss}, on_step=True, on_epoch=True, prog_bar=True)
+        return loss

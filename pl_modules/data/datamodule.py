@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torch_geometric
 import numpy as np
 
+from torch.utils.data import Dataset, random_split
 from torch_geometric.datasets import QM9
 from torch_geometric.loader import DataLoader
 from abc import ABC, abstractmethod
@@ -164,11 +165,18 @@ class MolybdenumDataModule(pl.LightningDataModule):
         self.train = None
         self.val = None
         self.test = None
+        self.train_size = None
+        self.test_size = None
         self.setup()
 
     def setup(self, stage=None):
         self.train = molybdata(self.db_name, split="train", datapoint_limit=self.datapoint_limit)
-        self.val = molybdata(self.db_name, split="test", datapoint_limit=self.datapoint_limit)
+        # self.val = molybdata(self.db_name, split="test", datapoint_limit=self.datapoint_limit)
+        # self.test = self.val
+
+        self.train_size = int(0.8 * len(self.train))
+        self.test_size = len(self.train) - self.train_size
+        self.train, self.val = random_split(self.train, [self.train_size, self.test_size])
         self.test = self.val
 
         self.label_scaler = self.label_scaler

@@ -10,6 +10,7 @@ import re
 from time import sleep
 from tqdm import tqdm
 import warnings
+import pandas as pd
 
 import torch
 from torch_geometric.data import Data, DataLoader
@@ -38,6 +39,9 @@ DATASETS = {
     "EFF": os.path.join("data", "EFF"),
     "EFF_train": os.path.join("data", "EFF", "train_gv"),
     "EFF_test": os.path.join("data", "EFF", "test3"),
+    "Cu_strain": os.path.join("data", "Cu_strain"),
+    "Cu_strain_train": os.path.join("data", "Cu_strain", "train_gv"),
+    "Cu_strain_test": os.path.join("data", "EFF", "test3"),
 }
 
 
@@ -289,11 +293,19 @@ def augment(l1, l2, l3, l4, aug_num, seq_len): # NEED TO ADD aug_nem and seq_len
     return l1_new, l2_new, l3_new, l4_new
 
 
-def data(db_name, split="train", augmentation=True, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
+def data(db_name, split="train", augmentation=False, datapoint_limit=None): # NEED TO ADD augmentation TO HYDRA
     """Create a PyTorch Geometric Data object"""
     warnings.filterwarnings("ignore")
     parinello, edge_indexes, edges = dataset(db_name=db_name, split=split, datapoint_limit=datapoint_limit)
-    labels = get_labels(db_name, split=split, datapoint_limit=datapoint_limit)
+    # labels = get_labels(db_name, split=split, datapoint_limit=datapoint_limit)
+
+    data_out = pd.read_csv("/home/amirhossein/Desktop/repos/AtteMtion_GIT/AtteMtion/dataset.csv", skipinitialspace=True)
+    labels = []
+    for i in range(len(data_out)):
+        prop = data_out['stress_Gpa'][i]
+        labels.append(prop)
+
+    labels = torch.tensor(labels, dtype=torch.float)
 
     if split == "train" and augmentation is True:
         parinello_aug, edge_indexes_aug, edges_aug, labels_aug = augment(parinello, edge_indexes, edges,

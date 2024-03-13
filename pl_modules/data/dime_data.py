@@ -82,14 +82,13 @@ class DimeNetDataModule(pl.LightningDataModule):
         return dataset
 
     def train_dataloader(self):
-
-        return DataLoader(self.scale_data(self.train_dataset), batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def test_dataloader(self):
-        return DataLoader(self.scale_data(self.test_dataset), batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
 
     def val_dataloader(self):
-        return DataLoader(self.scale_data(self.test_dataset), batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
 
 
 if __name__ == '__main__':

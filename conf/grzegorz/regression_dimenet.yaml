@@ -28,7 +28,7 @@ model:
     num_output_layers: 3
   readout: null
   optimizer_cfg:
-    lr: 0.0001
+    lr: 0.001
     step_size: 1000
     gamma: 0.5
 
@@ -37,7 +37,7 @@ datamodule:
   train_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
   test_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
   elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
-  separate_test: True
+  separate_test: False
   batch_size: 16
   label_scaler:
     _target_: sklearn.preprocessing.StandardScaler

@@ -3,18 +3,28 @@ run:
     dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 trainer:
-  max_epochs: 5000
+  max_epochs: 10000
 
 model:
   _target_: pl_modules.modules.in_context.InContextWrap
-  pool: ${load:torch_geometric.nn.global_mean_pool}
+  graph_pooling_fn: null
   encoder:
-    _target_: pl_modules.nn.graph_models.GATWrap
-    in_channels: 58
-    out_channels: 64
-    hidden_channels: 64
-    num_layers: 3
-    heads: 4        # comment for GCN
+    _target_: pl_modules.imports.dimenet.model.DimeNetPlusPlusWrap
+    num_targets: 1
+    hidden_channels: 128
+    num_blocks: 4
+    int_emb_size: 64
+    basis_emb_size: 8
+    out_emb_channels: 256
+    num_spherical: 7
+    num_radial: 6
+    otf_graph: True
+    cutoff: 10.0
+    max_num_neighbors: 20
+    envelope_exponent: 5
+    num_before_skip: 1
+    num_after_skip: 2
+    num_output_layers: 3     # comment for GCN
   decoder:
     _target_: transformers.GPT2Model
     config:
@@ -31,17 +41,18 @@ model:
     _target_: torch.nn.Linear
     in_features: 64
     out_features: 1
-  optimizer_cfg:
-    lr: 0.1
-    step_size: 1000
-    gamma: 0.5
+  #optimizer_cfg:
+  #  lr: 0.1
+  #  step_size: 1000
+  #  gamma: 0.5
 
 datamodule:
-  _target_: pl_modules.data.datamodule.MolybdenumDataModule
-  modification: no-context       # OR no-context
-  sequence_length: 10
+  _target_: pl_modules.data.dime_in_context.DimeNetDataModule
+  mode: context       # OR no-context
+  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
+  separate_test: False
   batch_size: 16
-  db_name: EFF
-  datapoint_limit: 10
   label_scaler:
-  #  _target_: sklearn.preprocessing.StandardScaler
+    _target_: sklearn.preprocessing.StandardScaler
