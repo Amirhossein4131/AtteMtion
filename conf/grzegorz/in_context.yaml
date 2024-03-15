@@ -4,6 +4,7 @@ run:
 
 trainer:
   max_epochs: 10000
+  gpus: 1
 
 model:
   _target_: pl_modules.modules.in_context.InContextWrap
