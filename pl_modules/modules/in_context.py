@@ -2,8 +2,10 @@ import torch
 import pytorch_lightning as pl
 import hydra
 import torch_scatter
+from torch.optim.lr_scheduler import StepLR
 
 from torch.optim import Adam
+
 
 class InContextWrap(pl.LightningModule):
     """ This class is designed to work just like InContextGNN provided correct configuration.
@@ -14,12 +16,15 @@ class InContextWrap(pl.LightningModule):
     To sum up, this class will not be equipped with optimizer/dataloaders. I will make alternative train.py
     and if you like that, we can merge to a single approach.
     """
-    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn=None, tricks=None, weight_loaders=None): # pass cfg.model as argument to this
+    def __init__(self, encoder, decoder, label_readout, graph_pooling_fn=None, tricks=None, weight_loaders=None,
+                 optimizer_cfg=None):  # pass cfg.model as argument to this
         super(InContextWrap, self).__init__()
         self.encoder = hydra.utils.instantiate(encoder, _recursive_=True)
         self.decoder = hydra.utils.instantiate(decoder, _recursive_=True)
         self.graph_pooling_fn = graph_pooling_fn
         self.label_readout = hydra.utils.instantiate(label_readout)
+        self.optimizer_cfg = hydra.utils.instantiate(optimizer_cfg)
+
         if tricks:
             self.tricks = [hydra.utils.instantiate(t, _recursive_=True) for t in tricks]
         else:
@@ -109,11 +114,10 @@ class InContextWrap(pl.LightningModule):
         return batch
 
     def configure_optimizers(self):
-        optimizer = Adam(self.parameters(), lr=1e-5)
-
-        return {
-            'optimizer': optimizer,
-        }
+        optimizer = Adam(self.parameters(), lr=self.optimizer_cfg.lr)
+        scheduler = {'scheduler': StepLR(optimizer, self.optimizer_cfg.step_size,
+                     gamma=self.optimizer_cfg.gamma), 'interval': 'epoch'}
+        return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
         batch = self.apply_tricks(batch, step='train')

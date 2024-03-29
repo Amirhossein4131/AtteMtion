@@ -1,0 +1,25 @@
+run:
+  hydra:
+    dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+trainer:
+  max_epochs: 10000
+  gpus: 0
+
+model:
+  _target_: pl_modules.modules.in_context_transformer.InContextTransformer
+  optimizer_cfg:
+    lr: 1e-6
+    step_size: 1000
+    gamma: 0.5
+
+datamodule:
+  _target_: pl_modules.data.dime_in_context.DimeNetDataModule
+  mode: context       # OR separate OR context OR no_context
+  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
+  elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
+  separate_test: False
+  batch_size: 16
+  label_scaler:
+    _target_: sklearn.preprocessing.StandardScaler

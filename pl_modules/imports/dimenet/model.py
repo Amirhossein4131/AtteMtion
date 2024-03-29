@@ -25,6 +25,7 @@ except ImportError:
 
 from math import pi as PI
 
+
 class BesselBasisLayer(BesselBasisLayer_pt1x):
     def reset_parameters(self):
         with torch.no_grad():
@@ -170,7 +171,6 @@ class OutputPPBlock(torch.nn.Module):
         for lin in self.lins:
             x = self.act(lin(x))
         return self.lin(x)
-
 
 
 class DimeNetPlusPlus(torch.nn.Module):

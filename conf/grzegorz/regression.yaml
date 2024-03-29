@@ -32,13 +32,3 @@ datamodule:
   datapoint_limit: 1000
   label_scaler:
   #  _target_: sklearn.preprocessing.StandardScaler
-
-#datamodule:
-#  _target_: pl_modules.data.dime_data.DimeNetDataModule
-#  train_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
-#  test_csv: ${oc.env:PROJECT_ROOT}/data/strain/dataset.csv
-#  elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json
-#  separate_test: True
-#  batch_size: 16
-#  label_scaler:
-#    _target_: sklearn.preprocessing.StandardScaler
