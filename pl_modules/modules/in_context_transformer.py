@@ -1,16 +1,22 @@
-import torch
-import pytorch_lightning as pl
-from torch import nn
 import hydra
-from torch_sparse import SparseTensor
-from torch.optim.lr_scheduler import StepLR
-from torch_geometric.nn.conv import TransformerConv
+import math
+from typing import List, Union, Tuple
 from pl_modules.imports.dimenet.model import radius_graph_pbc_wrapper, BesselBasisLayer, SphericalBasisLayer
 from pl_modules.imports.dimenet.utils import frac_to_cart_coords, get_pbc_distances
 
-from torch.optim import Adam
+import torch
+import pytorch_lightning as pl
+from torch import nn
 
-import math
+from torch_sparse import SparseTensor
+from torch.optim.lr_scheduler import StepLR
+from torch_geometric.nn.conv import TransformerConv
+
+
+from torch.optim import Adam
+from torch_geometric.typing import OptTensor
+
+
 from torch import Tensor
 
 
@@ -43,7 +49,7 @@ class InContextTransformer(pl.LightningModule):
         self.n_graph_channels = n_graph_channels
         self.positional_embedding = nn.Embedding(max_positions, n_graph_channels)
         self.blocks = nn.ModuleList([
-            InContextBlock(node_channels=node_channels, graph_channels=n_graph_channels) for _ in range(12)])
+            AtteMtionBlock(node_channels=node_channels, graph_channels=n_graph_channels) for _ in range(12)])
 
         self.injection = InjectionBlock(n_graph_channels)
         self.readout = ReadOutBlock(n_graph_channels)
@@ -247,8 +253,6 @@ class InContextBlock(nn.Module):
         batch.graph_h = self.upward_pass((batch.h, batch.graph_h), batch.upward)
         batch.graph_h = self.graph_interaction(batch.graph_h, batch.context_edge_index)
         batch.h = self.downward_pass((batch.graph_h, batch.h), batch.downward)
-        # Linear, Activation layers, norms
-
         return batch
 
 
@@ -281,11 +285,15 @@ activation_dict = {'gelu': NewGELUActivation,
 
 
 class MLP(nn.Module):
-    def __init__(self, input_channels, hidden_channels, activation_fn, output_channels):
+    def __init__(self, input_channels, hidden_channels=None, output_channels=None, activation_fn="silu"):
         super(MLP, self).__init__()
         if output_channels is None:
             output_channels = input_channels
 
+        if hidden_channels is None:
+            hidden_channels = input_channels
+
+        self.activation_fn = activation_fn
         self.linear_1 = nn.Linear(input_channels, hidden_channels)
         self.linear_2 = nn.Linear(hidden_channels, output_channels)
         if activation_fn:
@@ -301,6 +309,122 @@ class MLP(nn.Module):
         h2 = self.linear_2(ha)
 
         return h2
+
+
+class GPT2Attention(nn.Module):
+    def __init__(self,
+                 input_channels: Union[int, Tuple[int, int]],
+                 hidden_channels_att=None,
+                 output_channels=None,
+                 heads=1):
+
+        # ToDo: see if there is a activation in GPT 2
+        super(GPT2Attention, self).__init__()
+        default_channels = input_channels if type(input_channels) is int else input_channels[1]
+
+        if output_channels is None:
+            output_channels = default_channels
+
+        if hidden_channels_att is None:
+            hidden_channels_att = default_channels
+        self.att = TransformerConv(input_channels, hidden_channels_att, heads=heads)
+        self.proj = nn.Linear(hidden_channels_att, output_channels)
+
+    def forward(self, x: OptTensor, edge_index):
+        att_out = self.att(x, edge_index)
+        out = self.proj(att_out)
+        return out
+
+
+class AtteMtionBlock(nn.Module):
+    def __init__(self,
+                 node_channels: int,
+                 graph_channels: int,
+                 hidden_channels_att_node: Union[int, None] = None,
+                 hidden_channels_att_graph: Union[int, None] = None,
+                 hidden_channels_upward: Union[int, None] = None,
+                 hidden_channel_downward: Union[int, None] = None,
+                 heads_node: int = 4,
+                 heads_graph: int = 4,
+                 heads_upward: int = 4,
+                 heads_downward: int = 4,
+                 act_graph: str = "gelu",
+                 act_node: str = "silu"
+                 ):
+
+        super(AtteMtionBlock, self).__init__()
+
+        if hidden_channels_att_node is None:
+            hidden_channels_att_node = node_channels
+
+        if hidden_channels_att_graph is None:
+            hidden_channels_att_graph = graph_channels
+
+        if hidden_channels_att_node is None:
+            hidden_channels_att_node = node_channels
+
+        if hidden_channels_upward is None:
+            hidden_channels_upward = graph_channels
+
+        if hidden_channel_downward is None:
+            hidden_channel_downward = node_channels
+
+        # node
+        self.linear_node_1 = nn.Linear(node_channels, node_channels)
+        self.norm_node_1 = nn.LayerNorm(node_channels)
+        self.norm_node_2 = nn.LayerNorm(node_channels)
+        self.att_node = GPT2Attention(node_channels, node_channels)
+
+        # cross
+        self.att_upward = GPT2Attention((node_channels, graph_channels), graph_channels)
+        self.att_downward = GPT2Attention((graph_channels, node_channels), node_channels)
+
+        # graph
+        self.att_graph = GPT2Attention(graph_channels, graph_channels)
+        self.ln_1_graph = nn.LayerNorm(graph_channels)
+        self.mlp_graph = MLP(graph_channels, graph_channels, activation_fn=act_graph)
+        self.ln_2_graph = nn.LayerNorm(graph_channels)
+
+    def forward(self, batch):
+        # upwards
+        graph_h = self.att_upward((batch.h, batch.graph_h), batch.upward)
+
+        # nodes
+        h = self.linear_node_1(batch.h)
+
+        # graphs
+        graph_h = self.att_graph(graph_h, batch.context_edge_index)
+        graph_h = graph_h + batch.graph_h
+        graph_h = self.ln_1_graph(graph_h)
+        batch.graph_h = graph_h
+
+        # downward
+        h = self.att_downward((batch.graph_h, h), batch.downward)
+
+        # nodes
+        h = h + batch.h
+        h = self.norm_node_1(h)
+        batch.h = h
+        h = self.att_node(h, batch.edge_index)
+        h = h + batch.h
+        h = self.norm_node_2(h)
+        batch.h = h
+
+        # graphs
+        graph_h = self.mlp_graph(graph_h)
+        graph_h = graph_h + batch.graph_h
+        graph_h = self.ln_2_graph(graph_h)
+        batch.graph_h = graph_h
+
+        return batch
+
+
+
+
+
+
+
+
 
 
 

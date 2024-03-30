@@ -4,11 +4,7 @@ run:
 
 trainer:
   max_epochs: 10000
-<<<<<<< HEAD
-  gpus: 1
-=======
   gpus: 0
->>>>>>> eca88ac3 (update)
 
 model:
   _target_: pl_modules.modules.in_context.InContextWrap
