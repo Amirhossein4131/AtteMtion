@@ -32,17 +32,15 @@ class InContextWrap(pl.LightningModule):
 
         if weight_loaders is None:
             weight_loaders = []
-        self.weight_loaders = weight_loaders
+        self.weight_loaders = [hydra.utils.instantiate(wl, _recursive_=True) for wl in weight_loaders]
         for loader in self.weight_loaders:
             loader.apply(self)
-
 
     @staticmethod
     def map_graph_outputs(graph_h, batch):
         num_rows = torch.max(batch.context) + 1
         num_cols = torch.max(batch.num_in_context) + 1
         num_channels = graph_h.shape[-1]
-
 
         x_index = batch.context
         y_index = batch.num_in_context
@@ -52,7 +50,6 @@ class InContextWrap(pl.LightningModule):
 
         flat_graphs = flat_graphs[y_index >= 0]
         flat_indices = flat_indices[y_index >= 0]
-
 
         out_tensor = torch_scatter.scatter_add(
             src=flat_graphs,
@@ -81,7 +78,6 @@ class InContextWrap(pl.LightningModule):
         graph_y = self.map_graph_outputs(batch.y.reshape(-1, 1), batch)
         # graph_x_old = graph_h.reshape(datapoints, graphs_per_datapoint, -1)
         # assert torch.all(torch.isclose(graph_x, graph_x_old))
-
 
         zs = self._combine(graph_x, graph_y)[:, :-1]
         llm_outs = self.decoder(inputs_embeds=zs).last_hidden_state

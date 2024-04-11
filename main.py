@@ -22,7 +22,7 @@ assert (
 OmegaConf.register_new_resolver("load", lambda x: eval(x))
 
 
-@hydra.main(config_path=os.path.join('conf', 'for_coding'), config_name='incontext_transformer')
+@hydra.main(config_path=os.path.join('conf', 'grzegorz'), config_name='regression_dimenet')
 # Feel free to test the behavior of hydra: I made two equivalent versions of Your params: single_file and composed_conf
 def main(cfg: DictConfig):
     # Instantiate data module

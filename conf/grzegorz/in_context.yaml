@@ -1,5 +1,5 @@
-run:
-  hydra:
+hydra:
+  run:
     dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 trainer:
@@ -8,6 +8,14 @@ trainer:
 
 model:
   _target_: pl_modules.modules.in_context.InContextWrap
+  weight_loaders:
+    - _target_: pl_modules.modules.utils.weight_loader.ModelLoader
+      src:
+        - gnn
+      tgt:
+        - encoder
+      file_path: ${oc.env:PROJECT_ROOT}/hydra/forloading/lightning_logs/version_0/checkpoints/epoch=1-step=99.ckpt
+
   graph_pooling_fn: null
   encoder:
     _target_: pl_modules.imports.dimenet.model.DimeNetPlusPlusWrap

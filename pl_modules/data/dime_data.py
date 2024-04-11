@@ -23,14 +23,17 @@ class DimeNetDataModule(pl.LightningDataModule):
         with open(elements) as file:
             self.elements = json.load(file)
 
-        self.train_dataset = self.getdb(self, train_csv)
-        if separate_test:
-            self.test_dataset = self.getdb(self, test_csv)
-        else:
-            self.train_size = int(0.8 * len(self.train_dataset))
-            self.test_size = len(self.train_dataset) - self.train_size
-            self.train_dataset, self.test_dataset = random_split(self.train_dataset,
-                                                             [self.train_size, self.test_size])
+        self.train = self.getdb(self, train_csv)
+        self.train_dataset = self.train[:800]
+        self.test_dataset = self.train[800:]
+
+        # if separate_test:
+        #     self.test_dataset = self.getdb(self, test_csv)
+        # else:
+        #     self.train_size = int(0.8 * len(self.train_dataset))
+        #     self.test_size = len(self.train_dataset) - self.train_size
+        #     self.train_dataset, self.test_dataset = random_split(self.train_dataset,
+        #                                                      [self.train_size, self.test_size])
 
         if self.label_scaler is not None:
             self.label_scaler.fit(torch.stack(

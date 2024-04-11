@@ -1,6 +1,7 @@
-run:
-  hydra:
+hydra:
+  run:
     dir: ${oc.env:PROJECT_ROOT}/hydra/regression/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    #dir: ${oc.env:PROJECT_ROOT}/hydra/forloading
 
 trainer:
   max_epochs: 5000
