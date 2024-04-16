@@ -8,38 +8,19 @@ trainer:
 
 model:
   _target_: pl_modules.modules.in_context.InContextWrap
-#  weight_loaders:
-#    - _target_: pl_modules.modules.utils.weight_loader.ModelLoader
-#      src:
-#        - gnn
-#      tgt:
-#        - encoder
-#      file_path: ${oc.env:PROJECT_ROOT}/hydra/forloading/lightning_logs/version_0/checkpoints/epoch=1-step=99.ckpt
-
   graph_pooling_fn: null
   encoder:
-    _target_: pl_modules.imports.dimenet.model.DimeNetPlusPlusWrap
-    num_targets: 1
-    hidden_channels: 128
-    num_blocks: 4
-    int_emb_size: 64
-    basis_emb_size: 8
-    out_emb_channels: 256
-    num_spherical: 7
-    num_radial: 6
-    otf_graph: True
-    cutoff: 10.0
-    max_num_neighbors: 20
-    envelope_exponent: 5
-    num_before_skip: 1
-    num_after_skip: 2
-    num_output_layers: 3     # comment for GCN
+    _target_: pl_modules.modules.mlp.MLP
+    input_channels: 1
+    hidden_channels: 8
+    output_channels: 8
+    activation_fn: silu
   decoder:
     _target_: transformers.GPT2Model
     config:
       _target_: transformers.GPT2Config
       n_positions: 32
-      n_embd: 64
+      n_embd: 8
       n_layer: 2
       n_head: 4
       resid_pdrop: 0.0
@@ -48,16 +29,16 @@ model:
       use_cache: False
   label_readout:
     _target_: torch.nn.Linear
-    in_features: 64
+    in_features: 8
     out_features: 1
   optimizer_cfg:
-    lr: 1e-6
+    lr: 2e-5
     step_size: 1000
     gamma: 0.5
 
 datamodule:
   _target_: pl_modules.data.dime_in_context.DimeNetDataModule
-  mode: context       # OR separate OR context OR no_context
+  mode: no_context       # OR separate OR context OR no_context
   train_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
   test_csv: ${oc.env:PROJECT_ROOT}/data/strain/db.csv
   elements: ${oc.env:PROJECT_ROOT}/data/strain/elements.json

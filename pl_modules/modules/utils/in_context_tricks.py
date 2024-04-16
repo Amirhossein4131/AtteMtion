@@ -23,6 +23,13 @@ class Curriculum:
         return self.value
 
 
+class Constant:
+    def __init__(self, value):
+        self.value = value
+
+    def step(self):
+        return self.value
+
 
 class Trick(ABC):
     def __init__(self, *args, **kwargs):

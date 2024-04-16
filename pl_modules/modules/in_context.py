@@ -124,6 +124,7 @@ class InContextWrap(pl.LightningModule):
         loss = full_loss
         self.log_dict({'train_loss': loss,
                        'learning_rate': self.trainer.optimizers[0].param_groups[0]['lr'],
+                       'last_loss_train': single_loss
                        }, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
@@ -134,13 +135,15 @@ class InContextWrap(pl.LightningModule):
         single_loss = torch.nn.functional.mse_loss(out, label)
         full_loss = torch.nn.functional.mse_loss(outs, labels)
         loss = full_loss
-        self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True)
+        self.log_dict({'val_loss': loss, 'last_loss_val': single_loss}, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         batch = self.apply_tricks(batch, step='test')
         graphs_per_datapoint = torch.max(batch.num_in_context) + 1
         out, label, outs, labels = self(batch)
-        loss = torch.nn.functional.mse_loss(out, batch.y.reshape(torch.max(batch.context) + 1, graphs_per_datapoint)[:, [-1]])
-        self.log_dict({'test_loss': loss}, on_step=True, on_epoch=True, prog_bar=True)
+        single_loss = torch.nn.functional.mse_loss(out, label)
+        full_loss = torch.nn.functional.mse_loss(outs, labels)
+        loss = full_loss
+        self.log_dict({'test_loss': loss, 'last_loss_test': single_loss}, on_step=True, on_epoch=True, prog_bar=True)
         return loss

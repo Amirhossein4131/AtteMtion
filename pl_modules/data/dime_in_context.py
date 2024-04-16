@@ -175,6 +175,7 @@ class DimeNetDataModule(InContextDataModule, ABC):
 
             # target (y)
             prop = data['stress_Gpa'][i]
+            strain = data['strain'][i]
 
             # fractional coordinates
             frac_cords = np.array([line.split()[3:-1] for line in lines[25:]], dtype=float)
@@ -195,6 +196,7 @@ class DimeNetDataModule(InContextDataModule, ABC):
                               lengths=torch.tensor(lengths, dtype=torch.float32).view(1, -1),
                               angles=torch.tensor(angles, dtype=torch.float32).view(1, -1),
                               num_atoms=torch.tensor(num_atoms),
+                              strain=torch.tensor(strain, dtype=torch.float32).view(1, -1),
                               y=torch.tensor(prop, dtype=torch.float32).view(1, -1))
 
             db.append(data_point)
